@@ -251,12 +251,12 @@ module decode_stage(
     end
 
     // branch test
-    wire branch_taken   = (op_bne && (rf_rdata1 != rf_rdata2))
-                       || (op_beq && (rf_rdata1 == rf_rdata2))
-                       || ((op_bgez||op_bgezal) && !rf_rdata1[31])
-                       || (op_blez && (rf_rdata1[31] || rf_rdata1 == 32'd0))
-                       || (op_bgtz && !(rf_rdata1[31] || rf_rdata1 == 32'd0))
-                       || ((op_bltz||op_bltzal) && rf_rdata1[31]);
+    wire branch_taken   = (op_bne && (fwd_rdata1 != fwd_rdata2))
+                       || (op_beq && (fwd_rdata1 == fwd_rdata2))
+                       || ((op_bgez||op_bgezal) && !fwd_rdata1[31])
+                       || (op_blez && (fwd_rdata1[31] || fwd_rdata1 == 32'd0))
+                       || (op_bgtz && !(fwd_rdata1[31] || fwd_rdata1 == 32'd0))
+                       || ((op_bltz||op_bltzal) && fwd_rdata1[31]);
 
     assign branch       = valid && done && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
