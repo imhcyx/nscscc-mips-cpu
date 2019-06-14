@@ -11,13 +11,13 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="22667246307227fs"></ZoomStartTime>
-      <ZoomEndTime time="22667787463869fs"></ZoomEndTime>
-      <Cursor1Time time="22667386500000fs"></Cursor1Time>
+      <ZoomStartTime time="511455810fs"></ZoomStartTime>
+      <ZoomEndTime time="1097708839fs"></ZoomEndTime>
+      <Cursor1Time time="1000000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="196"></NameColumnWidth>
-      <ValueColumnWidth column_width="68"></ValueColumnWidth>
+      <ValueColumnWidth column_width="64"></ValueColumnWidth>
    </column_width_setting>
    <WVObjectSize size="16" />
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/clk" type="logic">
@@ -111,6 +111,7 @@
    <wvobject fp_name="group128" type="group">
       <obj_property name="label">IF</obj_property>
       <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/valid" type="logic">
          <obj_property name="ElementShortName">valid</obj_property>
          <obj_property name="ObjectShortName">valid</obj_property>
@@ -119,10 +120,6 @@
          <obj_property name="ElementShortName">done</obj_property>
          <obj_property name="ObjectShortName">done</obj_property>
       </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/state" type="array">
-         <obj_property name="ElementShortName">state[1:0]</obj_property>
-         <obj_property name="ObjectShortName">state[1:0]</obj_property>
-      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/pc_save" type="array">
          <obj_property name="ElementShortName">pc_save[31:0]</obj_property>
          <obj_property name="ObjectShortName">pc_save[31:0]</obj_property>
@@ -130,6 +127,18 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/inst_save" type="array">
          <obj_property name="ElementShortName">inst_save[31:0]</obj_property>
          <obj_property name="ObjectShortName">inst_save[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/wait_valid" type="logic">
+         <obj_property name="ElementShortName">wait_valid</obj_property>
+         <obj_property name="ObjectShortName">wait_valid</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/inst_saved" type="logic">
+         <obj_property name="ElementShortName">inst_saved</obj_property>
+         <obj_property name="ObjectShortName">inst_saved</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/ok_to_req" type="logic">
+         <obj_property name="ElementShortName">ok_to_req</obj_property>
+         <obj_property name="ObjectShortName">ok_to_req</obj_property>
       </wvobject>
    </wvobject>
    <wvobject fp_name="group54" type="group">

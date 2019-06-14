@@ -265,7 +265,7 @@ module decode_stage(
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
     wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
     assign branch_pc    = {32{branch_taken}} & pc_branch
-                        | {32{op_jr||op_jalr}} & rf_rdata1
+                        | {32{op_jr||op_jalr}} & fwd_rdata1
                         | {32{op_j||op_jal}} & pc_jump;
 
     always @(posedge clk) begin
@@ -289,6 +289,25 @@ module decode_stage(
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;
         end
+    end
+    
+    // special process for rdata1_o and rdata2_o
+    // sometimnes this stage is stalled and instruction in WB has retired
+    // making rdata1_o and rdata2_o outdated but the new values cannot be forwarded
+    // so we have to update rdata1_o and rdata2_o on each writeback
+    
+    always @(posedge clk) begin
+        if (ready_i)
+            rdata1_o    <= rf_rdata1;
+        else if (`GET_RS(inst_o) != 5'd0 && `GET_RS(inst_o) == wb_fwd_addr && wb_fwd_ok)
+            rdata1_o    <= wb_fwd_data;
+    end
+    
+    always @(posedge clk) begin
+        if (ready_i)
+            rdata2_o    <= rf_rdata2;
+        else if (`GET_RT(inst_o) != 5'd0 && `GET_RT(inst_o) == wb_fwd_addr && wb_fwd_ok)
+            rdata2_o    <= wb_fwd_data;
     end
     
     assign ready_o  = done || !valid_i;

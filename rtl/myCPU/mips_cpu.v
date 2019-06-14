@@ -37,7 +37,7 @@ module mips_cpu(
     wire if_id_valid, id_if_ready;
     wire [31:0] if_id_pc, if_id_inst;
     
-    wire req_state;
+    wire if_wait_data;
     wire branch, branch_ack;
     wire [31:0] branch_pc;
     
@@ -45,15 +45,14 @@ module mips_cpu(
     
     always @(posedge clk) begin
         if (!resetn) pc <= `VEC_RESET;
-        else if (branch && branch_ack) pc <= branch_pc;
         else if (if_ready) pc <= if_pc + 32'd4;
         else pc <= if_pc;
     end
     
-    assign branch_ack = !req_state;
+    assign branch_ack = if_wait_data;
     
     assign if_valid = 1'b1; //TODO
-    assign if_pc = pc; //TODO
+    assign if_pc = (branch && branch_ack) ? branch_pc : pc; //TODO
     
     fetch_stage fetch(
         .clk            (clk),
@@ -63,7 +62,7 @@ module mips_cpu(
         .inst_rdata     (inst_rdata),
         .inst_addr_ok   (inst_addr_ok),
         .inst_data_ok   (inst_data_ok),
-        .req_state      (req_state),
+        .wait_data      (if_wait_data),
         .ready_o        (if_ready),
         .valid_i        (if_valid),
         .pc_i           (if_pc),

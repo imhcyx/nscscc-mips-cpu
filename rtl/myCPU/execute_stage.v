@@ -194,7 +194,6 @@ module execute_stage(
             waddr_o     <= 5'd0;
             result_o    <= 32'd0;
             eaddr_o     <= 32'd0;
-            rdata2_o    <= 32'd0;
             ex_fwd_ok   <= 1'b0;
         end
         else if (ready_i) begin
@@ -209,9 +208,20 @@ module execute_stage(
                          | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
                          | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK])}} & alu_res_wire;
             eaddr_o     <= eff_addr;
-            rdata2_o    <= rdata2_i;
             ex_fwd_ok   <= valid && done && ctrl_i[`I_WEX];
         end
+    end
+    
+    // special process for rdata1_o and rdata2_o
+    // sometimnes this stage is stalled and instruction in WB has retired
+    // making rdata1_o and rdata2_o outdated but the new values cannot be forwarded
+    // so we have to update rdata1_o and rdata2_o on each writeback
+    
+    always @(posedge clk) begin
+        if (ready_i)
+            rdata2_o    <= rdata2_i;
+        else if (`GET_RT(inst_o) != 5'd0 && `GET_RT(inst_o) == wb_fwd_addr && wb_fwd_ok)
+            rdata2_o    <= wb_fwd_data;
     end
 
     assign ready_o  = done || !valid_i;

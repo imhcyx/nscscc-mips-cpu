@@ -11,7 +11,8 @@ module fetch_stage(
     input               inst_addr_ok,
     input               inst_data_ok,
     
-    output              req_state,
+    // indicates if there is an instruction waiting for data
+    output              wait_data,
     
     output              ready_o,
     input               valid_i,
@@ -25,34 +26,35 @@ module fetch_stage(
     wire valid, done;
     assign valid = valid_i;
     
-    localparam STATE_REQ    = 2'd0;
-    localparam STATE_WAIT   = 2'd1;
-    localparam STATE_KEEP   = 2'd2;
-    reg [1:0] state, state_next;
-    
-    always @(posedge clk) begin
-        if (!resetn) state <= STATE_REQ;
-        else state <= state_next;
-    end
-    
-    always @(*) begin
-        case(state)
-            STATE_REQ:  state_next = inst_addr_ok ? STATE_WAIT : STATE_REQ;
-            STATE_WAIT: state_next = inst_data_ok ? (ready_i ? STATE_REQ : STATE_KEEP) : STATE_WAIT;
-            STATE_KEEP: state_next = ready_i ? STATE_REQ : STATE_KEEP;
-            default:    state_next = STATE_REQ;
-        endcase
-    end
-    
     reg [31:0] pc_save, inst_save;
     always @(posedge clk) if (inst_addr_ok) pc_save <= pc_i;
     always @(posedge clk) if (inst_data_ok) inst_save <= inst_rdata;
     
-    assign inst_req     = valid && state == STATE_REQ;
+    // after addr is sent, the instruction enters an instruction-wait(IW) sub-stage, indicated by wait_valid
+    // this design is intended to make the fetch process pipelined
+    reg wait_valid;
+    always @(posedge clk) begin
+        if (!resetn) wait_valid <= 1'b0;
+        else if (inst_addr_ok) wait_valid <= 1'b1;
+        else if (done) wait_valid <= 1'b0;
+    end
+    
+    // indicates if a fetched instruction is saved due to ID stall
+    // note that this flag should be cleared once the saved instruction is accepted by ID
+    reg inst_saved;
+    always @(posedge clk) begin
+        if (!resetn) inst_saved <= 1'b0;
+        else if (ready_i) inst_saved <= 1'b0;
+        else if (inst_data_ok) inst_saved <= 1'b1;
+    end
+    
+    wire ok_to_req = !wait_valid || ready_i;
+    
+    assign inst_req     = valid && ok_to_req;
     assign inst_addr    = pc_i;
     
-    assign done     = state == STATE_WAIT && inst_data_ok && ready_i
-                   || state == STATE_KEEP && ready_i;
+    assign done     = !inst_saved && inst_data_ok && ready_i
+                   || inst_saved && ready_i;
     
     always @(posedge clk) begin
         if (!resetn) begin
@@ -61,13 +63,13 @@ module fetch_stage(
             inst_o      <= 32'd0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done; // done must imply ready_i
+            valid_o     <= wait_valid && done; // done must imply ready_i
             pc_o        <= pc_save;
-            inst_o      <= state == STATE_KEEP ? inst_save : inst_rdata;
+            inst_o      <= inst_saved ? inst_save : inst_rdata;
         end
     end
     
-    assign req_state    = state == STATE_REQ;
+    assign wait_data    = wait_valid;
     assign ready_o      = inst_addr_ok;
 
 endmodule
