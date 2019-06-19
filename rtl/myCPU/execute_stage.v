@@ -18,6 +18,12 @@ module execute_stage(
     input   [4:0]               wb_fwd_addr,    // 0 if instruction does not write
     input   [31:0]              wb_fwd_data,
     input                       wb_fwd_ok,      // whether data is generated after wb stage
+    
+    // mtc0/mfc0
+    output                      cp0_w,
+    output  [31:0]              cp0_wdata,
+    input   [31:0]              cp0_rdata,
+    output  [7 :0]              cp0_addr,
 
     output                      ready_o,
     input                       valid_i,
@@ -35,7 +41,19 @@ module execute_stage(
     output reg [31:0]           result_o,
     output reg [31:0]           eaddr_o,
     output reg [31:0]           rdata2_o,
-    output reg [4 :0]           waddr_o
+    output reg [4 :0]           waddr_o,
+    
+    // exception interface
+    input                       exc_i,
+    input   [4 :0]              exccode_i,
+    input                       bd_i,
+    input                       eret_i,
+    output                      commit,
+    output  [4 :0]              commit_code,
+    output                      commit_bd,
+    output  [31:0]              commit_epc,
+    output  [31:0]              commit_bvaddr,
+    output                      commit_eret
 );
 
     wire valid, done;
@@ -61,7 +79,7 @@ module execute_stage(
                             || fwd_wb_raddr1_hit && !wb_fwd_ok
                             || fwd_wb_raddr2_hit && !wb_fwd_ok;
 
-    assign valid = valid_i && !fwd_stall;
+    assign valid = valid_i && !exc_i && !fwd_stall;
 
     // imm extension
     wire [15:0] imm = `GET_IMM(inst_i);
@@ -84,6 +102,8 @@ module execute_stage(
         .Zero       (),
         .Result     (alu_res_wire)
     );
+    
+    wire alu_exc_of = ctrl_i[`I_EXC_OF] && alu_of;
 
     // select operand sources
     assign alu_a = ctrl_i[`I_ALU_A_SA] ? {27'd0, `GET_SA(inst_i)} : fwd_rdata1;
@@ -144,6 +164,11 @@ module execute_stage(
             if (valid && ctrl_i[`I_MTLO]) lo <= fwd_rdata1;
         end
     end
+    
+    // mtc0/mfc0
+    assign cp0_w = valid && ctrl_i[`I_MTC0];
+    assign cp0_wdata = fwd_rdata2;
+    assign cp0_addr = {`GET_RD(inst_i), inst_i[2:0]};
 
     ///// memory access request /////
     wire [31:0] eff_addr = fwd_rdata1 + imm_sx;
@@ -151,8 +176,13 @@ module execute_stage(
     wire [1:0] mem_byte_offset = eff_addr[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
-    wire mem_read = ctrl_i[`I_MEM_R]; // && !mem_adel;
-    wire mem_write = ctrl_i[`I_MEM_W]; // && !mem_ades;
+    wire mem_adel   = ctrl_i[`I_LW] && eff_addr[1:0] != 2'd0
+                   || (ctrl_i[`I_LH] || ctrl_i[`I_LHU]) && eff_addr[0] != 1'd0;
+    wire mem_ades   = ctrl_i[`I_SW] && eff_addr[1:0] != 2'd0
+                   || ctrl_i[`I_SH] && eff_addr[0] != 1'd0;
+    
+    wire mem_read = ctrl_i[`I_MEM_R] && !mem_adel;
+    wire mem_write = ctrl_i[`I_MEM_W] && !mem_ades;
     
     assign data_req = valid && (mem_read || mem_write);
     assign data_wr = mem_write;
@@ -182,8 +212,20 @@ module execute_stage(
 
     assign done     = ready_i && !fwd_stall
                    && ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]) && !muldiv
-                   || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && data_addr_ok
+                   || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok||mem_adel||mem_ades)
                    || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+
+    // exceptions
+    wire exc = alu_exc_of || mem_adel || mem_ades;
+    wire [4:0] exccode = {5{alu_exc_of}} & `EXC_OV
+                       | {5{mem_adel}} & `EXC_ADEL
+                       | {5{mem_ades}} & `EXC_ADES;
+    assign commit = valid && exc || valid_i && exc_i;
+    assign commit_code = valid && exc ? exccode : exccode_i;
+    assign commit_bd = bd_i;
+    assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
+    assign commit_bvaddr = (mem_adel || mem_ades) ? eff_addr : pc_i;
+    assign commit_eret = eret_i;
 
     always @(posedge clk) begin
         if (!resetn) begin
@@ -197,7 +239,7 @@ module execute_stage(
             ex_fwd_ok   <= 1'b0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done; // done must imply ready_i
+            valid_o     <= valid_i && done && !exc_i && !exc; // done must imply ready_i
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_i;
@@ -206,7 +248,8 @@ module execute_stage(
                          | {32{ctrl_i[`I_MFLO]}} & lo
                          | {32{ctrl_i[`I_LUI]}} & {imm, 16'd0}
                          | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
-                         | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK])}} & alu_res_wire;
+                         | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
+                         | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
             eaddr_o     <= eff_addr;
             ex_fwd_ok   <= valid && done && ctrl_i[`I_WEX];
         end

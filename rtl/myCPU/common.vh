@@ -1,3 +1,48 @@
+// Coprocessor 0 Registers
+
+`define CP0_INDEX           8'b00000_000 // 0 , 0
+`define CP0_RANDOM          8'b00001_000 // 1 , 0
+`define CP0_ENTRYLO0        8'b00010_000 // 2 , 0
+`define CP0_ENTRYLO1        8'b00011_000 // 3 , 0
+`define CP0_CONTEXT         8'b00100_000 // 4 , 0
+`define CP0_PAGEMASK        8'b00101_000 // 5 , 0
+`define CP0_WIRED           8'b00110_000 // 6 , 0
+`define CP0_BADVADDR        8'b01000_000 // 8 , 0
+`define CP0_COUNT           8'b01001_000 // 9 , 0
+`define CP0_ENTRYHI         8'b01010_000 // 10, 0
+`define CP0_COMPARE         8'b01011_000 // 11, 0
+`define CP0_STATUS          8'b01100_000 // 12, 0
+`define CP0_CAUSE           8'b01101_000 // 13, 0
+`define CP0_EPC             8'b01110_000 // 14, 0
+`define CP0_PRID            8'b01111_000 // 15, 0
+`define CP0_CONFIG          8'b10000_000 // 16, 0
+`define CP0_ERROREPC        8'b11110_000 // 30, 0
+
+`define CP0_TAGLO_RD        5'd28
+`define CP0_TAGHI_RD        5'd29
+
+// Coprocessor 0 Register Bits
+// Status (12, 0)
+`define STATUS_CU0          28
+`define STATUS_BEV          22
+`define STATUS_IM           15:8
+`define STATUS_UM           4
+`define STATUS_ERL          2
+`define STATUS_EXL          1
+`define STATUS_IE           0
+
+// Cause (13, 0)
+`define CAUSE_BD            31
+`define CAUSE_TI            30
+`define CAUSE_CE            29:28
+`define CAUSE_IV            23
+`define CAUSE_IP            15:8
+`define CAUSE_IP7_2         15:10
+`define CAUSE_IP1_0         9:8
+`define CAUSE_EXCCODE       6:2
+
+// Exception vectors
+
 `define VEC_RESET           32'hbfc0_0000
 `define VEC_REFILL          32'h8000_0000
 `define VEC_REFILL_EXL      32'h8000_0180

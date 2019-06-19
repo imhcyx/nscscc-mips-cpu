@@ -31,6 +31,9 @@ module decode_stage(
     output                      branch,
     input                       branch_ack,
     output  [31:0]              branch_pc,
+    
+    // interrupt
+    input                       int_sig,
 
     // data forwarding
     input   [4 :0]              ex_fwd_addr,    // 0 if instruction does not write
@@ -51,11 +54,29 @@ module decode_stage(
     output reg [`I_MAX-1:0]     ctrl_o,
     output reg [31:0]           rdata1_o,
     output reg [31:0]           rdata2_o,
-    output reg [4 :0]           waddr_o
+    output reg [4 :0]           waddr_o,
+    
+    // exception interface
+    input                       exc_i,
+    input   [4:0]               exccode_i,
+    output reg                  exc_o,
+    output reg [4:0]            exccode_o,
+    output reg                  bd_o,
+    output reg                  eret_o,
+    input                       cancel_i,
+    output                      cancel_o
 );
 
     wire valid, done;
-    assign valid = valid_i;
+    
+    reg cancelled;
+    always @(posedge clk) begin
+        if (!resetn) cancelled <= 1'b0;
+        else if (done) cancelled <= 1'b0;
+        else if (cancel_i) cancelled <= 1'b1;
+    end
+    
+    assign valid = valid_i && !exc_i && !cancel_i && !cancelled;
     
     wire [`I_MAX-1:0] ctrl_sig;
 
@@ -214,7 +235,7 @@ module decode_stage(
     
     assign rf_raddr1 = `GET_RS(inst_i);
     assign rf_raddr2 = `GET_RT(inst_i);
-    
+
     // data forwarding in id stage is only used by branch/jump instructions
     wire fwd_id_raddr1_hit  = ctrl_sig[`I_RS_R] && rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
     wire fwd_id_raddr2_hit  = ctrl_sig[`I_RT_R] && rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
@@ -230,7 +251,7 @@ module decode_stage(
                             : fwd_wb_raddr2_hit && wb_fwd_ok ? wb_fwd_data
                             : rf_rdata2;
 
-    wire br_inst = op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr;
+    wire br_inst = valid && (op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr);
     
     wire fwd_stall          = br_inst && (fwd_id_raddr1_hit
                                         || fwd_id_raddr2_hit
@@ -268,6 +289,15 @@ module decode_stage(
                         | {32{op_jr||op_jalr}} & fwd_rdata1
                         | {32{op_j||op_jal}} & pc_jump;
 
+    // exceptions
+    wire exc = op_eret || op_syscall || op_break || reserved || int_sig;
+    wire [4:0] exccode = {5{op_syscall}} & `EXC_SYS
+                       | {5{op_break}} & `EXC_BP
+                       | {5{reserved}} & `EXC_RI
+                       | {5{int_sig}} & `EXC_INT;
+    
+    assign cancel_o = valid_i && !exc_i && exc; // cancel_o does not necessarily depend on cancel_i
+
     always @(posedge clk) begin
         if (!resetn) begin
             valid_o     <= 1'b0;
@@ -277,9 +307,13 @@ module decode_stage(
             rdata1_o    <= 32'd0;
             rdata2_o    <= 32'd0;
             waddr_o     <= 5'd0;
+            exc_o       <= 1'b0;
+            exccode_o   <= 5'd0;
+            bd_o        <= 1'b0;
+            eret_o      <= 1'b0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done; // done must imply ready_i
+            valid_o     <= valid_i && done && !cancel_i && !cancelled; // done must imply ready_i
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_sig;
@@ -288,6 +322,10 @@ module decode_stage(
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;
+            exc_o       <= exc_i || valid && exc;
+            exccode_o   <= valid && exc ? exccode : exccode_i;
+            bd_o        <= prev_branch;
+            eret_o      <= valid && op_eret;
         end
     end
     

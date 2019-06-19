@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="511455810fs"></ZoomStartTime>
-      <ZoomEndTime time="1097708839fs"></ZoomEndTime>
+      <ZoomStartTime time="0fs"></ZoomStartTime>
+      <ZoomEndTime time="638660497fs"></ZoomEndTime>
       <Cursor1Time time="1000000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="196"></NameColumnWidth>
-      <ValueColumnWidth column_width="64"></ValueColumnWidth>
+      <ValueColumnWidth column_width="60"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="16" />
+   <WVObjectSize size="19" />
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -86,6 +86,70 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/data_data_ok" type="logic">
          <obj_property name="ElementShortName">data_data_ok</obj_property>
          <obj_property name="ObjectShortName">data_data_ok</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/int_sig" type="logic">
+      <obj_property name="ElementShortName">int_sig</obj_property>
+      <obj_property name="ObjectShortName">int_sig</obj_property>
+   </wvobject>
+   <wvobject fp_name="group178" type="group">
+      <obj_property name="label">commit</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit" type="logic">
+         <obj_property name="ElementShortName">commit</obj_property>
+         <obj_property name="ObjectShortName">commit</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit_bd" type="logic">
+         <obj_property name="ElementShortName">commit_bd</obj_property>
+         <obj_property name="ObjectShortName">commit_bd</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit_eret" type="logic">
+         <obj_property name="ElementShortName">commit_eret</obj_property>
+         <obj_property name="ObjectShortName">commit_eret</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit_code" type="array">
+         <obj_property name="ElementShortName">commit_code[4:0]</obj_property>
+         <obj_property name="ObjectShortName">commit_code[4:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit_epc" type="array">
+         <obj_property name="ElementShortName">commit_epc[31:0]</obj_property>
+         <obj_property name="ObjectShortName">commit_epc[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit_bvaddr" type="array">
+         <obj_property name="ElementShortName">commit_bvaddr[31:0]</obj_property>
+         <obj_property name="ObjectShortName">commit_bvaddr[31:0]</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="group186" type="group">
+      <obj_property name="label">cp0interface</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_w" type="logic">
+         <obj_property name="ElementShortName">cp0_w</obj_property>
+         <obj_property name="ObjectShortName">cp0_w</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_wdata" type="array">
+         <obj_property name="ElementShortName">cp0_wdata[31:0]</obj_property>
+         <obj_property name="ObjectShortName">cp0_wdata[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_rdata" type="array">
+         <obj_property name="ElementShortName">cp0_rdata[31:0]</obj_property>
+         <obj_property name="ObjectShortName">cp0_rdata[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_addr" type="array">
+         <obj_property name="ElementShortName">cp0_addr[7:0]</obj_property>
+         <obj_property name="ObjectShortName">cp0_addr[7:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_status" type="array">
+         <obj_property name="ElementShortName">cp0_status[31:0]</obj_property>
+         <obj_property name="ObjectShortName">cp0_status[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_cause" type="array">
+         <obj_property name="ElementShortName">cp0_cause[31:0]</obj_property>
+         <obj_property name="ObjectShortName">cp0_cause[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/cp0_epc" type="array">
+         <obj_property name="ElementShortName">cp0_epc[31:0]</obj_property>
+         <obj_property name="ObjectShortName">cp0_epc[31:0]</obj_property>
       </wvobject>
    </wvobject>
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_valid" type="logic">
@@ -160,6 +224,14 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_inst" type="array">
          <obj_property name="ElementShortName">if_id_inst[31:0]</obj_property>
          <obj_property name="ObjectShortName">if_id_inst[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_exc" type="logic">
+         <obj_property name="ElementShortName">if_id_exc</obj_property>
+         <obj_property name="ObjectShortName">if_id_exc</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_exccode" type="array">
+         <obj_property name="ElementShortName">if_id_exccode[4:0]</obj_property>
+         <obj_property name="ObjectShortName">if_id_exccode[4:0]</obj_property>
       </wvobject>
    </wvobject>
    <wvobject fp_name="group37" type="group">
@@ -290,6 +362,22 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_waddr" type="array">
          <obj_property name="ElementShortName">id_ex_waddr[4:0]</obj_property>
          <obj_property name="ObjectShortName">id_ex_waddr[4:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_exc" type="logic">
+         <obj_property name="ElementShortName">id_ex_exc</obj_property>
+         <obj_property name="ObjectShortName">id_ex_exc</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_bd" type="logic">
+         <obj_property name="ElementShortName">id_ex_bd</obj_property>
+         <obj_property name="ObjectShortName">id_ex_bd</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_eret" type="logic">
+         <obj_property name="ElementShortName">id_ex_eret</obj_property>
+         <obj_property name="ObjectShortName">id_ex_eret</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_exccode" type="array">
+         <obj_property name="ElementShortName">id_ex_exccode[4:0]</obj_property>
+         <obj_property name="ObjectShortName">id_ex_exccode[4:0]</obj_property>
       </wvobject>
    </wvobject>
    <wvobject fp_name="group187" type="group">

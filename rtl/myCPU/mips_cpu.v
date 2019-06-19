@@ -30,12 +30,49 @@ module mips_cpu(
     output  [31:0]      debug_wb_rf_wdata
 );
     
+    wire int_sig;
+    
+    wire commit, commit_bd, commit_eret;
+    wire [4:0] commit_code;
+    wire [31:0] commit_epc, commit_bvaddr;
+    
+    wire cp0_w;
+    wire [31:0] cp0_wdata, cp0_rdata;
+    wire [7:0] cp0_addr;
+    
+    wire [31:0] cp0_status, cp0_cause, cp0_epc;
+    
+    cp0regs u_cp0regs(
+        .clk            (clk),
+        .resetn         (resetn),
+        .int            (int),
+        .int_sig        (int_sig),
+        .mtc0           (cp0_w),
+        .mtc0_data      (cp0_wdata),
+        .mfc0_data      (cp0_rdata),
+        .addr           (cp0_addr),
+        .commit_exc     (commit),
+        .commit_code    (commit_code),
+        .commit_bd      (commit_bd),
+        .commit_epc     (commit_epc),
+        .commit_bvaddr  (commit_bvaddr),
+        .commit_eret    (commit_eret),
+        .status         (cp0_status),
+        .cause          (cp0_cause),
+        .epc            (cp0_epc)
+    );
+    
+    wire id_cancel;
+    
     //////////////////// IF ////////////////////
     
-    wire if_valid, if_ready;
+    wire if_valid;
+    wire if_ready;
     wire [31:0] if_pc;
     wire if_id_valid, id_if_ready;
     wire [31:0] if_id_pc, if_id_inst;
+    wire if_id_exc;
+    wire [4:0] if_id_exccode;
     
     wire if_wait_data;
     wire branch, branch_ack;
@@ -51,8 +88,17 @@ module mips_cpu(
     
     assign branch_ack = if_wait_data;
     
-    assign if_valid = 1'b1; //TODO
-    assign if_pc = (branch && branch_ack) ? branch_pc : pc; //TODO
+    reg if_valid_r;
+    always @(posedge clk) begin
+        if (!resetn) if_valid_r <= 1'b1;
+        else if (commit) if_valid_r <= 1'b1;
+        else if (id_cancel) if_valid_r <= 1'b0;
+    end
+    assign if_valid = if_valid_r && !id_cancel;
+    
+    assign if_pc =
+        commit ? (commit_eret ? cp0_epc : `VEC_OTHER_BEV) :
+        (branch && branch_ack) ? branch_pc : pc;
     
     fetch_stage fetch(
         .clk            (clk),
@@ -69,7 +115,10 @@ module mips_cpu(
         .ready_i        (id_if_ready),
         .valid_o        (if_id_valid),
         .pc_o           (if_id_pc),
-        .inst_o         (if_id_inst)
+        .inst_o         (if_id_inst),
+        .exc_o          (if_id_exc),
+        .exccode_o      (if_id_exccode),
+        .cancel_i       (id_cancel||commit)
     );
     
     //////////////////// ID ////////////////////
@@ -98,6 +147,8 @@ module mips_cpu(
     wire [`I_MAX-1:0] id_ex_ctrl;
     wire [31:0] id_ex_rdata1, id_ex_rdata2;
     wire [4:0] id_ex_waddr;
+    wire id_ex_exc, id_ex_bd, id_ex_eret;
+    wire [4:0] id_ex_exccode;
     
     decode_stage decode(
         .clk            (clk),
@@ -109,6 +160,7 @@ module mips_cpu(
         .branch         (branch),
         .branch_ack     (branch_ack),
         .branch_pc      (branch_pc),
+        .int_sig        (int_sig),
         .ex_fwd_addr    (ex_fwd_addr),
         .ex_fwd_data    (ex_fwd_data),
         .ex_fwd_ok      (ex_fwd_ok),
@@ -126,7 +178,15 @@ module mips_cpu(
         .ctrl_o         (id_ex_ctrl),
         .rdata1_o       (id_ex_rdata1),
         .rdata2_o       (id_ex_rdata2),
-        .waddr_o        (id_ex_waddr)
+        .waddr_o        (id_ex_waddr),
+        .exc_i          (if_id_exc),
+        .exccode_i      (if_id_exccode),
+        .exc_o          (id_ex_exc),
+        .exccode_o      (id_ex_exccode),
+        .bd_o           (id_ex_bd),
+        .eret_o         (id_ex_eret),
+        .cancel_i       (commit),
+        .cancel_o       (id_cancel)
     );
     
     //////////////////// EX ////////////////////
@@ -151,6 +211,10 @@ module mips_cpu(
         .wb_fwd_addr    (wb_fwd_addr),
         .wb_fwd_data    (wb_fwd_data),
         .wb_fwd_ok      (wb_fwd_ok),
+        .cp0_w          (cp0_w),
+        .cp0_wdata      (cp0_wdata),
+        .cp0_rdata      (cp0_rdata),
+        .cp0_addr       (cp0_addr),
         .ready_o        (ex_id_ready),
         .valid_i        (id_ex_valid),
         .pc_i           (id_ex_pc),
@@ -167,7 +231,17 @@ module mips_cpu(
         .result_o       (ex_wb_result),
         .eaddr_o        (ex_wb_eaddr),            
         .rdata2_o       (ex_wb_rdata2),
-        .waddr_o        (ex_wb_waddr)   
+        .waddr_o        (ex_wb_waddr),
+        .exc_i          (id_ex_exc),
+        .exccode_i      (id_ex_exccode),
+        .bd_i           (id_ex_bd),
+        .eret_i         (id_ex_eret),
+        .commit         (commit),
+        .commit_code    (commit_code),
+        .commit_bd      (commit_bd),
+        .commit_epc     (commit_epc),
+        .commit_bvaddr  (commit_bvaddr),
+        .commit_eret    (commit_eret)
     );
     
     assign ex_fwd_addr  = {5{ex_wb_valid}} & ex_wb_waddr;
