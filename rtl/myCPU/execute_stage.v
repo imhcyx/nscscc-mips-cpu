@@ -114,6 +114,7 @@ module execute_stage(
     reg mul_flag;
     always @(posedge clk) begin
         if (!resetn) mul_flag <= 1'b0;
+        else if (ctrl_i[`I_DO_DIV] && valid) mul_flag <= 1'b0;
         else mul_flag <= ctrl_i[`I_DO_MUL] && valid;
     end
     
@@ -138,7 +139,8 @@ module execute_stage(
         .y(fwd_rdata2),
         .s(div_s),
         .r(div_r),
-        .complete(div_complete)
+        .complete(div_complete),
+        .cancel(ctrl_i[`I_DO_MUL] && valid)
     );
     
     reg muldiv; // mul or div in progreses
@@ -211,9 +213,9 @@ module execute_stage(
         {3{ctrl_i[`I_SB]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 3'd0;
 
     assign done     = ready_i && !fwd_stall
-                   && ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]) && !muldiv
+                   && ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok||mem_adel||mem_ades)
-                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
 
     // exceptions
     wire exc = alu_exc_of || mem_adel || mem_ades;

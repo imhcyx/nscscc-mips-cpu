@@ -103,7 +103,7 @@ module fetch_stage(
         else if (ready_i) begin
             valid_o     <= (wait_valid || if_req_exc) && done && !cancel_i && !cancel_save; // done must imply ready_i
             pc_o        <= wait_valid ? pc_save : pc_i;
-            inst_o      <= inst_saved ? inst_save : inst_rdata;
+            inst_o      <= (!wait_valid && if_req_exc) ? 32'd0 : inst_saved ? inst_save : inst_rdata; // pass NOP on exception to prevent potential errors
             exc_o       <= !wait_valid && if_req_exc;
             exccode_o   <= {5{if_adel}} & `EXC_ADEL;
         end

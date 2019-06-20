@@ -29,7 +29,8 @@ module div(
     input [31:0] y,
     output [31:0] s,
     output [31:0] r,
-    output complete
+    output complete,
+    input cancel
 );
 
   reg [5:0] cnt;
@@ -41,9 +42,10 @@ module div(
   wire [64:0] sub1_res = x_ - y1;
   wire [64:0] sub2_res = x_ - y2;
   wire [64:0] sub3_res = x_ - y3;
-  wire working = div || cnt != 6'd0;
+  wire working = cnt != 6'd0;
 
-  assign cnt_next = cnt == 6'd17 ? 6'd0
+  assign cnt_next = cnt == 6'd17 || cancel ? 6'd0
+                  : div ? 6'd1
                   : working ? cnt + 6'd1
                   : 6'd0;
   always @(posedge div_clk or negedge resetn) begin
@@ -61,25 +63,23 @@ module div(
       sign_s <= 1'b0;
       sign_r <= 1'b0;
     end
-    else if (working) begin
-      if (cnt_next == 6'd1) begin
-        x_ <= {32'd0, (x[31]&&div_signed) ? ~x+1'b1 : x};
-        y1 <= y1_wire;
-        y2 <= y1_wire << 1;
-        y3 <= y1_wire + (y1_wire << 1);
-        sign_s <= (x[31]^y[31]) && div_signed;
-        sign_r <= x[31] && div_signed;
-      end
-      else if (cnt != 6'd17) begin
-        x_ <= !sub3_res[64] ? sub3_res[63:0]
-            : !sub2_res[64] ? sub2_res[63:0]
-            : !sub1_res[64] ? sub1_res[63:0]
-            : x_;
-        y1 <= y1 >> 2;
-        y2 <= y2 >> 2;
-        y3 <= y3 >> 2;
-        quot <= (quot << 2) | {30'd0, !sub3_res[64] ? 2'd3 : !sub2_res[64] ? 2'd2 : !sub1_res[64] ? 2'd1 : 2'd0};
-      end
+    else if (cnt_next == 6'd1) begin
+      x_ <= {32'd0, (x[31]&&div_signed) ? ~x+1'b1 : x};
+      y1 <= y1_wire;
+      y2 <= y1_wire << 1;
+      y3 <= y1_wire + (y1_wire << 1);
+      sign_s <= (x[31]^y[31]) && div_signed;
+      sign_r <= x[31] && div_signed;
+    end
+    else if (cnt != 6'd17) begin
+      x_ <= !sub3_res[64] ? sub3_res[63:0]
+          : !sub2_res[64] ? sub2_res[63:0]
+          : !sub1_res[64] ? sub1_res[63:0]
+          : x_;
+      y1 <= y1 >> 2;
+      y2 <= y2 >> 2;
+      y3 <= y3 >> 2;
+      quot <= (quot << 2) | {30'd0, !sub3_res[64] ? 2'd3 : !sub2_res[64] ? 2'd2 : !sub1_res[64] ? 2'd1 : 2'd0};
     end
   end
 
