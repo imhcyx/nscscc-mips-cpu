@@ -304,8 +304,6 @@ module decode_stage(
             pc_o        <= 32'd0;
             inst_o      <= 32'd0;
             ctrl_o      <= `I_MAX'd0;
-            rdata1_o    <= 32'd0;
-            rdata2_o    <= 32'd0;
             waddr_o     <= 5'd0;
             exc_o       <= 1'b0;
             exccode_o   <= 5'd0;
@@ -317,8 +315,6 @@ module decode_stage(
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_sig;
-            rdata1_o    <= rf_rdata1;
-            rdata2_o    <= rf_rdata2;
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;
