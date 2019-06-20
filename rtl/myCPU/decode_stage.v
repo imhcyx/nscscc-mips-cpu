@@ -236,11 +236,9 @@ module decode_stage(
     assign rf_raddr1 = `GET_RS(inst_i);
     assign rf_raddr2 = `GET_RT(inst_i);
 
-    // data forwarding in id stage is only used by branch/jump instructions
+    // data forwarding
     // `I_RS_R & `I_RT_R check is omitted for enhanced timing
     // this may introduce false data hazards but no forwarding errors
-    wire fwd_id_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
-    wire fwd_id_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
     wire fwd_ex_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == ex_fwd_addr;
     wire fwd_ex_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == ex_fwd_addr;
     wire fwd_wb_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
@@ -255,16 +253,23 @@ module decode_stage(
 
     wire br_inst = valid && (op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr);
     
-    wire fwd_stall          = br_inst && (fwd_id_raddr1_hit
-                                        || fwd_id_raddr2_hit
-                                        || fwd_ex_raddr1_hit && !ex_fwd_ok
-                                        || fwd_ex_raddr2_hit && !ex_fwd_ok
-                                        || fwd_wb_raddr1_hit && !wb_fwd_ok
-                                        || fwd_wb_raddr2_hit && !wb_fwd_ok);
+    wire fwd_stall  = fwd_ex_raddr1_hit && !ex_fwd_ok
+                   || fwd_ex_raddr2_hit && !ex_fwd_ok
+                   || fwd_wb_raddr1_hit && !wb_fwd_ok
+                   || fwd_wb_raddr2_hit && !wb_fwd_ok;
+
+    // for branch/jump instructions, forwarded data are used after a delay of 1 cycle
+    reg [31:0] br_rdata1, br_rdata2;
+    reg br_forwarded;
+    always @(posedge clk) br_rdata1 <= fwd_rdata1;
+    always @(posedge clk) br_rdata2 <= fwd_rdata2;
+    always @(posedge clk) br_forwarded <= br_inst && !fwd_stall;
+    
+    wire br_fwd_stall = br_inst && !br_forwarded;
 
     wire branch_ack_stall   = br_inst && !branch_ack;
 
-    assign done = !fwd_stall && !branch_ack_stall && ready_i;
+    assign done = !fwd_stall && ! br_fwd_stall && !branch_ack_stall && ready_i;
 
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump
@@ -274,12 +279,12 @@ module decode_stage(
     end
 
     // branch test
-    wire branch_taken   = (op_bne && (fwd_rdata1 != fwd_rdata2))
-                       || (op_beq && (fwd_rdata1 == fwd_rdata2))
-                       || ((op_bgez||op_bgezal) && !fwd_rdata1[31])
-                       || (op_blez && (fwd_rdata1[31] || fwd_rdata1 == 32'd0))
-                       || (op_bgtz && !(fwd_rdata1[31] || fwd_rdata1 == 32'd0))
-                       || ((op_bltz||op_bltzal) && fwd_rdata1[31]);
+    wire branch_taken   = (op_bne && (br_rdata1 != br_rdata2))
+                       || (op_beq && (br_rdata1 == br_rdata2))
+                       || ((op_bgez||op_bgezal) && !br_rdata1[31])
+                       || (op_blez && (br_rdata1[31] || br_rdata1 == 32'd0))
+                       || (op_bgtz && !(br_rdata1[31] || br_rdata1 == 32'd0))
+                       || ((op_bltz||op_bltzal) && br_rdata1[31]);
 
     assign branch       = valid && done && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
@@ -288,7 +293,7 @@ module decode_stage(
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
     wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
     assign branch_pc    = {32{branch_taken}} & pc_branch
-                        | {32{op_jr||op_jalr}} & fwd_rdata1
+                        | {32{op_jr||op_jalr}} & br_rdata1
                         | {32{op_j||op_jal}} & pc_jump;
 
     // exceptions
@@ -306,6 +311,8 @@ module decode_stage(
             pc_o        <= 32'd0;
             inst_o      <= 32'd0;
             ctrl_o      <= `I_MAX'd0;
+            rdata1_o    <= 32'd0;
+            rdata2_o    <= 32'd0;
             waddr_o     <= 5'd0;
             exc_o       <= 1'b0;
             exccode_o   <= 5'd0;
@@ -317,6 +324,8 @@ module decode_stage(
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_sig;
+            rdata1_o    <= fwd_rdata1;
+            rdata2_o    <= fwd_rdata2;
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;
@@ -325,25 +334,6 @@ module decode_stage(
             bd_o        <= prev_branch;
             eret_o      <= valid && op_eret;
         end
-    end
-    
-    // special process for rdata1_o and rdata2_o
-    // sometimnes this stage is stalled and instruction in WB has retired
-    // making rdata1_o and rdata2_o outdated but the new values cannot be forwarded
-    // so we have to update rdata1_o and rdata2_o on each writeback
-    
-    always @(posedge clk) begin
-        if (ready_i)
-            rdata1_o    <= rf_rdata1;
-        else if (`GET_RS(inst_o) != 5'd0 && `GET_RS(inst_o) == wb_fwd_addr && wb_fwd_ok)
-            rdata1_o    <= wb_fwd_data;
-    end
-    
-    always @(posedge clk) begin
-        if (ready_i)
-            rdata2_o    <= rf_rdata2;
-        else if (`GET_RT(inst_o) != 5'd0 && `GET_RT(inst_o) == wb_fwd_addr && wb_fwd_ok)
-            rdata2_o    <= wb_fwd_data;
     end
     
     assign ready_o  = done || !valid_i;

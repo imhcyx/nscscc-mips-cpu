@@ -13,9 +13,6 @@ module writeback_stage(
     output  [4 :0]              rf_waddr,
     output  [31:0]              rf_wdata,
 
-    // data forwarding
-    output reg                  wb_fwd_ok,      // whether data is generated after wb stage
-
     output                      ready_o,
     input                       valid_i,
     input   [31:0]              pc_i,
@@ -24,12 +21,7 @@ module writeback_stage(
     input   [31:0]              result_i,
     input   [31:0]              eaddr_i,
     input   [31:0]              rdata2_i,
-    input   [4 :0]              waddr_i,
-    
-    // forwarding
-    output reg                  valid_o,
-    output reg  [4 :0]          waddr_o,
-    output reg  [31:0]          result_o
+    input   [4 :0]              waddr_i
 );
 
     wire valid, done;
@@ -75,21 +67,6 @@ module writeback_stage(
     assign rf_wen   = valid && done && (ctrl_i[`I_WEX]||ctrl_i[`I_WWB]);
     assign rf_waddr = waddr_i;
     assign rf_wdata = ctrl_i[`I_MEM_R] ? memdata : result_i;
-    
-    always @(posedge clk) begin
-        if (!resetn) begin
-            valid_o     <= 1'b0;
-            wb_fwd_ok   <= 1'b0;
-            waddr_o     <= 5'd0;
-            result_o    <= 32'd0;
-        end
-        else begin
-            valid_o     <= valid_i && done;
-            wb_fwd_ok   <= rf_wen;
-            waddr_o     <= waddr_i;
-            result_o    <= rf_wdata;
-        end
-    end
 
     assign ready_o  = done || !valid_i;
 

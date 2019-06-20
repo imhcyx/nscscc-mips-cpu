@@ -207,10 +207,9 @@ module mips_cpu(
         .data_size      (data_size),
         .data_wdata     (data_wdata),
         .data_addr_ok   (data_addr_ok),
-        .ex_fwd_ok      (ex_fwd_ok),
-        .wb_fwd_addr    (wb_fwd_addr),
-        .wb_fwd_data    (wb_fwd_data),
-        .wb_fwd_ok      (wb_fwd_ok),
+        .fwd_addr       (ex_fwd_addr),
+        .fwd_data       (ex_fwd_data),
+        .fwd_ok         (ex_fwd_ok),
         .cp0_w          (cp0_w),
         .cp0_wdata      (cp0_wdata),
         .cp0_rdata      (cp0_rdata),
@@ -244,14 +243,7 @@ module mips_cpu(
         .commit_eret    (commit_eret)
     );
     
-    assign ex_fwd_addr  = {5{ex_wb_valid}} & ex_wb_waddr;
-    assign ex_fwd_data  = ex_wb_result;
-    
     //////////////////// WB ////////////////////
-    
-    wire wb_valid;
-    wire [4:0] wb_waddr;
-    wire [31:0] wb_result;
     
     writeback_stage writeback(
         .clk            (clk),
@@ -261,7 +253,6 @@ module mips_cpu(
         .rf_wen         (rf_wen),
         .rf_waddr       (rf_waddr),
         .rf_wdata       (rf_wdata),
-        .wb_fwd_ok      (wb_fwd_ok),
         .ready_o        (wb_ex_ready),
         .valid_i        (ex_wb_valid),
         .pc_i           (ex_wb_pc),
@@ -270,14 +261,12 @@ module mips_cpu(
         .result_i       (ex_wb_result),
         .eaddr_i        (ex_wb_eaddr), 
         .rdata2_i       (ex_wb_rdata2),
-        .waddr_i        (ex_wb_waddr),
-        .valid_o        (wb_valid),
-        .waddr_o        (wb_waddr),
-        .result_o       (wb_result)
+        .waddr_i        (ex_wb_waddr)
     );
     
-    assign wb_fwd_addr  = {5{wb_valid}} & wb_waddr;
-    assign wb_fwd_data  = wb_result;
+    assign wb_fwd_addr  = {5{ex_wb_valid}} & rf_waddr;
+    assign wb_fwd_data  = rf_wdata;
+    assign wb_fwd_ok    = rf_wen;
     
     assign debug_wb_pc          = ex_wb_pc;
     assign debug_wb_rf_wen      = {4{rf_wen}};

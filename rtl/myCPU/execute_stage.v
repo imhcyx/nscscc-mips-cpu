@@ -14,10 +14,9 @@ module execute_stage(
     input                       data_addr_ok,
 
     // data forwarding
-    output reg                  ex_fwd_ok,      // whether data is generated after ex stage
-    input   [4:0]               wb_fwd_addr,    // 0 if instruction does not write
-    input   [31:0]              wb_fwd_data,
-    input                       wb_fwd_ok,      // whether data is generated after wb stage
+    output  [4 :0]              fwd_addr,
+    output  [31:0]              fwd_data,
+    output                      fwd_ok,      // whether data is generated after ex stage
     
     // mtc0/mfc0
     output                      cp0_w,
@@ -57,31 +56,8 @@ module execute_stage(
 );
 
     wire valid, done;
-    
-    // data forwarding
-    wire [4:0] rf_raddr1    = `GET_RS(inst_i);
-    wire [4:0] rf_raddr2    = `GET_RT(inst_i);
-    // `I_RS_R & `I_RT_R check is omitted for enhanced timing
-    // this may introduce false data hazards but no forwarding errors
-    wire fwd_ex_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
-    wire fwd_ex_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
-    wire fwd_wb_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
-    wire fwd_wb_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
-    
-    wire [31:0] fwd_rdata1  = fwd_ex_raddr1_hit && ex_fwd_ok ? result_o
-                            : fwd_wb_raddr1_hit && wb_fwd_ok ? wb_fwd_data
-                            : rdata1_i;
-    wire [31:0] fwd_rdata2  = fwd_ex_raddr2_hit && ex_fwd_ok ? result_o
-                            : fwd_wb_raddr2_hit && wb_fwd_ok ? wb_fwd_data
-                            : rdata2_i;
 
-    
-    wire fwd_stall          = fwd_ex_raddr1_hit && !ex_fwd_ok
-                            || fwd_ex_raddr2_hit && !ex_fwd_ok
-                            || fwd_wb_raddr1_hit && !wb_fwd_ok
-                            || fwd_wb_raddr2_hit && !wb_fwd_ok;
-
-    assign valid = valid_i && !exc_i && !fwd_stall;
+    assign valid = valid_i && !exc_i;
 
     // imm extension
     wire [15:0] imm = `GET_IMM(inst_i);
@@ -106,8 +82,8 @@ module execute_stage(
     );
 
     // select operand sources
-    assign alu_a = ctrl_i[`I_ALU_A_SA] ? {27'd0, `GET_SA(inst_i)} : fwd_rdata1;
-    assign alu_b = ctrl_i[`I_ALU_B_IMM] ? imm_32 : fwd_rdata2;
+    assign alu_a = ctrl_i[`I_ALU_A_SA] ? {27'd0, `GET_SA(inst_i)} : rdata1_i;
+    assign alu_b = ctrl_i[`I_ALU_B_IMM] ? imm_32 : rdata2_i;
 
     // multiplication
     wire [63:0] mul_res;
@@ -122,8 +98,8 @@ module execute_stage(
         .mul_clk(clk),
         .resetn(resetn),
         .mul_signed(ctrl_i[`I_MD_SIGN]),
-        .x(fwd_rdata1),
-        .y(fwd_rdata2),
+        .x(rdata1_i),
+        .y(rdata2_i),
         .result(mul_res)
     );
     
@@ -135,8 +111,8 @@ module execute_stage(
         .resetn(resetn),
         .div(ctrl_i[`I_DO_DIV] && valid),
         .div_signed(ctrl_i[`I_MD_SIGN]),
-        .x(fwd_rdata1),
-        .y(fwd_rdata2),
+        .x(rdata1_i),
+        .y(rdata2_i),
         .s(div_s),
         .r(div_r),
         .complete(div_complete),
@@ -162,18 +138,18 @@ module execute_stage(
             lo <= div_s;
         end
         else begin
-            if (valid && ctrl_i[`I_MTHI]) hi <= fwd_rdata1;
-            if (valid && ctrl_i[`I_MTLO]) lo <= fwd_rdata1;
+            if (valid && ctrl_i[`I_MTHI]) hi <= rdata1_i;
+            if (valid && ctrl_i[`I_MTLO]) lo <= rdata1_i;
         end
     end
     
     // mtc0/mfc0
     assign cp0_w = valid && ctrl_i[`I_MTC0];
-    assign cp0_wdata = fwd_rdata2;
+    assign cp0_wdata = rdata2_i;
     assign cp0_addr = {`GET_RD(inst_i), inst_i[2:0]};
 
     ///// memory access request /////
-    wire [31:0] eff_addr = fwd_rdata1 + imm_sx;
+    wire [31:0] eff_addr = rdata1_i + imm_sx;
     wire [31:0] mem_addr_aligned = eff_addr & 32'hfffffffc;
     wire [1:0] mem_byte_offset = eff_addr[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
@@ -199,11 +175,11 @@ module execute_stage(
     
     // mem write data
     assign data_wdata =
-        {32{ctrl_i[`I_SW]}} & fwd_rdata2 |
-        {32{ctrl_i[`I_SH]}} & {fwd_rdata2[15:0], fwd_rdata2[15:0]} |
-        {32{ctrl_i[`I_SB]}} & {fwd_rdata2[7:0], fwd_rdata2[7:0], fwd_rdata2[7:0], fwd_rdata2[7:0]} |
-        {32{ctrl_i[`I_SWL]}} & (fwd_rdata2 >> (8 * mem_byte_offsetn)) |
-        {32{ctrl_i[`I_SWR]}} & (fwd_rdata2 << (8 * mem_byte_offset));
+        {32{ctrl_i[`I_SW]}} & rdata2_i |
+        {32{ctrl_i[`I_SH]}} & {rdata2_i[15:0], rdata2_i[15:0]} |
+        {32{ctrl_i[`I_SB]}} & {rdata2_i[7:0], rdata2_i[7:0], rdata2_i[7:0], rdata2_i[7:0]} |
+        {32{ctrl_i[`I_SWL]}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
+        {32{ctrl_i[`I_SWR]}} & (rdata2_i << (8 * mem_byte_offset));
     
     assign data_addr = mem_addr_aligned;
     
@@ -222,7 +198,7 @@ module execute_stage(
     reg alu_of_ready; // for ADD/SUB instruction, wait 1 extra cycle for alu_of_r to be filled
     always @(posedge clk) alu_of_ready <= valid && ctrl_i[`I_EXC_OF];
 
-    assign done     = ready_i && !fwd_stall
+    assign done     = ready_i
                    && ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
                    || mem_exc_r
@@ -241,6 +217,15 @@ module execute_stage(
     assign commit_bvaddr = (mem_adel || mem_ades) ? eff_addr : pc_i;
     assign commit_eret = eret_i;
 
+    assign fwd_addr = {5{valid_i}} & waddr_i;
+    assign fwd_data = {32{ctrl_i[`I_MFHI]}} & hi
+                    | {32{ctrl_i[`I_MFLO]}} & lo
+                    | {32{ctrl_i[`I_LUI]}} & {imm, 16'd0}
+                    | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
+                    | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
+                    | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
+    assign fwd_ok   = valid && done && ctrl_i[`I_WEX];
+
     always @(posedge clk) begin
         if (!resetn) begin
             valid_o     <= 1'b0;
@@ -250,7 +235,7 @@ module execute_stage(
             waddr_o     <= 5'd0;
             result_o    <= 32'd0;
             eaddr_o     <= 32'd0;
-            ex_fwd_ok   <= 1'b0;
+            rdata2_o    <= 32'd0;
         end
         else if (ready_i) begin
             valid_o     <= valid_i && done && !exc_i && !exc; // done must imply ready_i
@@ -258,27 +243,10 @@ module execute_stage(
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_i;
             waddr_o     <= waddr_i;
-            result_o    <= {32{ctrl_i[`I_MFHI]}} & hi
-                         | {32{ctrl_i[`I_MFLO]}} & lo
-                         | {32{ctrl_i[`I_LUI]}} & {imm, 16'd0}
-                         | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
-                         | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
-                         | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
+            result_o    <= fwd_data;
             eaddr_o     <= eff_addr;
-            ex_fwd_ok   <= valid && done && ctrl_i[`I_WEX];
-        end
-    end
-    
-    // special process for rdata1_o and rdata2_o
-    // sometimnes this stage is stalled and instruction in WB has retired
-    // making rdata1_o and rdata2_o outdated but the new values cannot be forwarded
-    // so we have to update rdata1_o and rdata2_o on each writeback
-    
-    always @(posedge clk) begin
-        if (ready_i)
             rdata2_o    <= rdata2_i;
-        else if (`GET_RT(inst_o) != 5'd0 && `GET_RT(inst_o) == wb_fwd_addr && wb_fwd_ok)
-            rdata2_o    <= wb_fwd_data;
+        end
     end
 
     assign ready_o  = done || !valid_i;
