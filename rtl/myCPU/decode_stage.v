@@ -237,12 +237,14 @@ module decode_stage(
     assign rf_raddr2 = `GET_RT(inst_i);
 
     // data forwarding in id stage is only used by branch/jump instructions
-    wire fwd_id_raddr1_hit  = ctrl_sig[`I_RS_R] && rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
-    wire fwd_id_raddr2_hit  = ctrl_sig[`I_RT_R] && rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
-    wire fwd_ex_raddr1_hit  = ctrl_sig[`I_RS_R] && rf_raddr1 != 5'd0 && rf_raddr1 == ex_fwd_addr;
-    wire fwd_ex_raddr2_hit  = ctrl_sig[`I_RT_R] && rf_raddr2 != 5'd0 && rf_raddr2 == ex_fwd_addr;
-    wire fwd_wb_raddr1_hit  = ctrl_sig[`I_RS_R] && rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
-    wire fwd_wb_raddr2_hit  = ctrl_sig[`I_RT_R] && rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
+    // `I_RS_R & `I_RT_R check is omitted for enhanced timing
+    // this may introduce false data hazards but no forwarding errors
+    wire fwd_id_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
+    wire fwd_id_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
+    wire fwd_ex_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == ex_fwd_addr;
+    wire fwd_ex_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == ex_fwd_addr;
+    wire fwd_wb_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
+    wire fwd_wb_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
     
     wire [31:0] fwd_rdata1  = fwd_ex_raddr1_hit && ex_fwd_ok ? ex_fwd_data
                             : fwd_wb_raddr1_hit && wb_fwd_ok ? wb_fwd_data

@@ -61,10 +61,12 @@ module execute_stage(
     // data forwarding
     wire [4:0] rf_raddr1    = `GET_RS(inst_i);
     wire [4:0] rf_raddr2    = `GET_RT(inst_i);
-    wire fwd_ex_raddr1_hit  = ctrl_i[`I_RS_R] && rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
-    wire fwd_ex_raddr2_hit  = ctrl_i[`I_RT_R] && rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
-    wire fwd_wb_raddr1_hit  = ctrl_i[`I_RS_R] && rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
-    wire fwd_wb_raddr2_hit  = ctrl_i[`I_RT_R] && rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
+    // `I_RS_R & `I_RT_R check is omitted for enhanced timing
+    // this may introduce false data hazards but no forwarding errors
+    wire fwd_ex_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == waddr_o && valid_o;
+    wire fwd_ex_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == waddr_o && valid_o;
+    wire fwd_wb_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
+    wire fwd_wb_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
     
     wire [31:0] fwd_rdata1  = fwd_ex_raddr1_hit && ex_fwd_ok ? result_o
                             : fwd_wb_raddr1_hit && wb_fwd_ok ? wb_fwd_data
@@ -102,8 +104,6 @@ module execute_stage(
         .Zero       (),
         .Result     (alu_res_wire)
     );
-    
-    wire alu_exc_of = ctrl_i[`I_EXC_OF] && alu_of;
 
     // select operand sources
     assign alu_a = ctrl_i[`I_ALU_A_SA] ? {27'd0, `GET_SA(inst_i)} : fwd_rdata1;
@@ -212,14 +212,26 @@ module execute_stage(
         {3{ctrl_i[`I_SH]||ctrl_i[`I_LH]||ctrl_i[`I_LHU]}} & 3'd1 |
         {3{ctrl_i[`I_SB]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 3'd0;
 
+    // mem_exc_r saves the state of AdES and AdEL
+    // alu_of_r saves the ALU overflow state
+    // only intended to enhance timing for critical path
+    reg mem_exc_r, alu_of_r;
+    always @(posedge clk) mem_exc_r <= valid && (mem_adel || mem_ades);
+    always @(posedge clk) alu_of_r <= valid && ctrl_i[`I_EXC_OF] && alu_of;
+    
+    reg alu_of_ready; // for ADD/SUB instruction, wait 1 extra cycle for alu_of_r to be filled
+    always @(posedge clk) alu_of_ready <= valid && ctrl_i[`I_EXC_OF];
+
     assign done     = ready_i && !fwd_stall
                    && ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
-                   || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok||mem_adel||mem_ades)
-                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+                   || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
+                   || mem_exc_r
+                   || ctrl_i[`I_EXC_OF] && alu_of_ready
+                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]||ctrl_i[`I_EXC_OF]));
 
     // exceptions
-    wire exc = alu_exc_of || mem_adel || mem_ades;
-    wire [4:0] exccode = {5{alu_exc_of}} & `EXC_OV
+    wire exc = alu_of_r || mem_exc_r;
+    wire [4:0] exccode = {5{alu_of_r}} & `EXC_OV
                        | {5{mem_adel}} & `EXC_ADEL
                        | {5{mem_ades}} & `EXC_ADES;
     assign commit = valid && exc || valid_i && exc_i;
