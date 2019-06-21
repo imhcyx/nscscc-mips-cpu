@@ -43,7 +43,7 @@ module decode_stage(
     input   [31:0]              wb_fwd_data,
     input                       wb_fwd_ok,      // whether data is generated after wb stage
 
-    output                      ready_o,
+    output                      done_o,
     input                       valid_i,
     input   [31:0]              pc_i,
     input   [31:0]              inst_i,
@@ -67,12 +67,12 @@ module decode_stage(
     output                      cancel_o
 );
 
-    wire valid, done;
+    wire valid;
     
     reg cancelled;
     always @(posedge clk) begin
         if (!resetn) cancelled <= 1'b0;
-        else if (done) cancelled <= 1'b0;
+        else if (done_o && ready_i) cancelled <= 1'b0;
         else if (cancel_i) cancelled <= 1'b1;
     end
     
@@ -269,13 +269,13 @@ module decode_stage(
 
     wire branch_ack_stall   = br_inst && !branch_ack;
 
-    assign done = !fwd_stall && ! br_fwd_stall && !branch_ack_stall && ready_i;
+    assign done_o = !fwd_stall && ! br_fwd_stall && !branch_ack_stall;
 
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump
     always @(posedge clk) begin
         if (!resetn) prev_branch <= 1'b0;
-        else if (valid && done) prev_branch <= br_inst;
+        else if (valid && done_o && ready_i) prev_branch <= br_inst;
     end
 
     // branch test
@@ -286,7 +286,7 @@ module decode_stage(
                        || (op_bgtz && !(br_rdata1[31] || br_rdata1 == 32'd0))
                        || ((op_bltz||op_bltzal) && br_rdata1[31]);
 
-    assign branch       = valid && done && (op_j||op_jr||op_jal||op_jalr||branch_taken);
+    assign branch       = valid && done_o && ready_i && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
     wire [15:0] imm = `GET_IMM(inst_i);
     wire [31:0] seq_pc = pc_i + 32'd4;
@@ -320,7 +320,7 @@ module decode_stage(
             eret_o      <= 1'b0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done && !cancel_i && !cancelled; // done must imply ready_i
+            valid_o     <= valid_i && done_o && ready_i && !cancel_i && !cancelled;
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_sig;
@@ -335,7 +335,5 @@ module decode_stage(
             eret_o      <= valid && op_eret;
         end
     end
-    
-    assign ready_o  = done || !valid_i;
 
 endmodule

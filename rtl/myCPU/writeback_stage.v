@@ -13,7 +13,7 @@ module writeback_stage(
     output  [4 :0]              rf_waddr,
     output  [31:0]              rf_wdata,
 
-    output                      ready_o,
+    output                      done_o,
     input                       valid_i,
     input   [31:0]              pc_i,
     input   [31:0]              inst_i,
@@ -24,7 +24,7 @@ module writeback_stage(
     input   [4 :0]              waddr_i
 );
 
-    wire valid, done;
+    wire valid;
     assign valid = valid_i;
     
     // process length & extension for read
@@ -61,13 +61,11 @@ module writeback_stage(
     
     // TODO: reconsider the processing of data_data_ok
     //       are we sure that the load/store instruction is in WB when data_data_ok==1? (currently yes)
-    assign done     = (ctrl_i[`I_MEM_R] || ctrl_i[`I_MEM_W]) && data_data_ok
+    assign done_o     = (ctrl_i[`I_MEM_R] || ctrl_i[`I_MEM_W]) && data_data_ok
                    || !(ctrl_i[`I_MEM_R] || ctrl_i[`I_MEM_W]);
 
-    assign rf_wen   = valid && done && (ctrl_i[`I_WEX]||ctrl_i[`I_WWB]);
+    assign rf_wen   = valid && done_o && (ctrl_i[`I_WEX]||ctrl_i[`I_WWB]);
     assign rf_waddr = waddr_i;
     assign rf_wdata = ctrl_i[`I_MEM_R] ? memdata : result_i;
-
-    assign ready_o  = done || !valid_i;
 
 endmodule

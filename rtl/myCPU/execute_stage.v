@@ -24,7 +24,7 @@ module execute_stage(
     input   [31:0]              cp0_rdata,
     output  [7 :0]              cp0_addr,
 
-    output                      ready_o,
+    output                      done_o,
     input                       valid_i,
     input   [31:0]              pc_i,
     input   [31:0]              inst_i,
@@ -55,7 +55,7 @@ module execute_stage(
     output                      commit_eret
 );
 
-    wire valid, done;
+    wire valid;
 
     assign valid = valid_i && !exc_i;
 
@@ -198,8 +198,7 @@ module execute_stage(
     reg alu_of_ready; // for ADD/SUB instruction, wait 1 extra cycle for alu_of_r to be filled
     always @(posedge clk) alu_of_ready <= valid && ctrl_i[`I_EXC_OF];
 
-    assign done     = ready_i
-                   && ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
+    assign done_o   = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
                    || mem_exc_r
                    || ctrl_i[`I_EXC_OF] && alu_of_ready
@@ -224,7 +223,7 @@ module execute_stage(
                     | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
                     | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
                     | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
-    assign fwd_ok   = valid && done && ctrl_i[`I_WEX];
+    assign fwd_ok   = valid && done_o && ready_i && ctrl_i[`I_WEX];
 
     always @(posedge clk) begin
         if (!resetn) begin
@@ -238,7 +237,7 @@ module execute_stage(
             rdata2_o    <= 32'd0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done && !exc_i && !exc; // done must imply ready_i
+            valid_o     <= valid_i && done_o && ready_i && !exc_i && !exc;
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_i;
@@ -248,7 +247,5 @@ module execute_stage(
             rdata2_o    <= rdata2_i;
         end
     end
-
-    assign ready_o  = done || !valid_i;
 
 endmodule

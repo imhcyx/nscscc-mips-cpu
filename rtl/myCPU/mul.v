@@ -19,36 +19,6 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-`ifdef SIMULATION
-
-// for simulation only
-module mul(
-    input mul_clk,
-    input resetn,
-    input mul_signed,
-    input [31:0] x,
-    input [31:0] y,
-    output [63:0] result
-);
-
-    reg [63:0] result_r;
-    
-    wire signed [31:0] x_signed = x;
-    wire signed [31:0] y_signed = y;
-    wire [63:0] result_unsigned = x * y;
-    wire signed [63:0] result_signed = x_signed * y_signed;
-
-    always @(posedge mul_clk) begin
-        if (!resetn) result_r <= 64'd0;
-        else result_r <= mul_signed ? result_signed : result_unsigned;
-    end
-
-    assign result = result_r;
-
-endmodule
-
-`else
-
 // partial product generator for booth algorithm
 module booth_gen #(
     parameter integer width = 32
@@ -169,5 +139,3 @@ module mul(
   assign result = {out_carry[62:0], part_carry_reg[15]} + out_sum + part_carry_reg[16];
 
 endmodule
-
-`endif
