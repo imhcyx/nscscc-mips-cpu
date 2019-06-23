@@ -29,15 +29,11 @@ module fetch_stage(
     input               cancel_i
 );
     
-    wire valid, done;
-    
     // Note: IF is divided into two sub-stages: IF_req and IF_wait
     // IF_req sends requests to fetch instructions and detects exceptions
     // IF_wait awaits responses for sent requests
     
     ////////// IF_req //////////
-    
-    assign valid = valid_i;
     
     // pc is saved between the two sub-stages of IF
     reg [31:0] pc_save;
@@ -48,18 +44,20 @@ module fetch_stage(
     wire if_adel = pc_i[1:0] != 2'd0;
     wire if_req_exc = if_adel; // TODO: TLB exceptions
     
+    wire wait_done;
+    
     // after addr is sent, the instruction enters an instruction-wait(IW) sub-stage, indicated by wait_valid
     // this design is intended to make the fetch process pipelined
     reg wait_valid;
     always @(posedge clk) begin
         if (!resetn) wait_valid <= 1'b0;
         else if (inst_addr_ok) wait_valid <= 1'b1;
-        else if (done && ready_i) wait_valid <= 1'b0;
+        else if (wait_done && ready_i) wait_valid <= 1'b0;
     end
     
     wire ok_to_req = !wait_valid || ready_i;
     
-    assign inst_req     = valid && ok_to_req && !if_adel;
+    assign inst_req     = valid_i && ok_to_req && !if_adel;
     assign inst_addr    = pc_i;
     
     ////////// IF_wait //////////
@@ -74,7 +72,7 @@ module fetch_stage(
     reg cancel_save;
     always @(posedge clk) begin
         if (!resetn) cancel_save <= 1'b0;
-        else if (done && ready_i) cancel_save <= 1'b0;
+        else if (wait_done && ready_i) cancel_save <= 1'b0;
         else if (cancel_i && wait_valid) cancel_save <= 1'b1;
     end
     
@@ -87,9 +85,9 @@ module fetch_stage(
         else if (inst_data_ok) inst_saved <= 1'b1;
     end
     
-    assign done     = !inst_saved && inst_data_ok
-                   || inst_saved
-                   || if_req_exc && !wait_valid;
+    assign wait_done    = !inst_saved && inst_data_ok
+                       || inst_saved
+                       || if_req_exc && !wait_valid;
     
     // Note: exception in IF_req must be passwd to ID after the instruction in IF_wait has been passed to ID
     always @(posedge clk) begin
@@ -101,7 +99,7 @@ module fetch_stage(
             exccode_o   <= 5'd0;
         end
         else if (ready_i) begin
-            valid_o     <= (wait_valid || if_req_exc) && done && ready_i && !cancel_i && !cancel_save;
+            valid_o     <= (wait_valid || if_req_exc) && wait_done && ready_i && !cancel_i && !cancel_save;
             pc_o        <= wait_valid ? pc_save : pc_i;
             inst_o      <= (!wait_valid && if_req_exc) ? 32'd0 : inst_saved ? inst_save : inst_rdata; // pass NOP on exception to prevent potential errors
             exc_o       <= !wait_valid && if_req_exc;

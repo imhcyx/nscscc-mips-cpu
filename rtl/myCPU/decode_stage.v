@@ -269,7 +269,7 @@ module decode_stage(
 
     wire branch_ack_stall   = br_inst && !branch_ack;
 
-    assign done_o = !fwd_stall && ! br_fwd_stall && !branch_ack_stall;
+    assign done_o = !fwd_stall && !br_fwd_stall && !branch_ack_stall;
 
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump

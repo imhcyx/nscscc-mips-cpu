@@ -80,12 +80,20 @@ module mips_cpu(
     
     wire [31:0] vector = commit_eret ? cp0_epc : `VEC_OTHER_BEV;
     
+    // introduce a delay for branch instruction because pc <= branch_pc + 32'd4 creates long paths
+    reg branched;
+    always @(posedge clk) begin
+        if (!resetn) branched <= 1'b0;
+        else if (branch && branch_ack) branched <= 1'b1;
+        else if (if_ready) branched <= 1'b0;
+    end
+    
     reg [31:0] pc;
     always @(posedge clk) begin
         if (!resetn) pc <= `VEC_RESET;
         else if (commit) pc <= vector;
-        else if (if_ready) pc <= if_pc + 32'd4;
-        else pc <= if_pc;
+        else if (branch && branch_ack) pc <= branch_pc;
+        else if (if_ready) pc <= pc + 32'd4;
     end
     
     reg if_valid_r;
@@ -93,12 +101,14 @@ module mips_cpu(
         if (!resetn) if_valid_r <= 1'b1;
         else if (commit) if_valid_r <= 1'b1;
         else if (id_cancel) if_valid_r <= 1'b0;
+        else if (branch && branch_ack) if_valid_r <= 1'b0;
+        else if (branched) if_valid_r <= 1'b1; 
     end
     
-    assign if_valid = if_valid_r && !id_cancel && !commit;
+    assign if_valid = if_valid_r && !id_cancel && !commit && !(branch && branch_ack);
     assign branch_ack = if_wait_data;
     
-    assign if_pc = (branch && branch_ack) ? branch_pc : pc;
+    assign if_pc = pc;
     
     fetch_stage fetch(
         .clk            (clk),
