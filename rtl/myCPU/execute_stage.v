@@ -86,12 +86,13 @@ module execute_stage(
     assign alu_b = ctrl_i[`I_ALU_B_IMM] ? imm_32 : rdata2_i;
 
     // multiplication
+    // the multiplier is divided into 3 stages
     wire [63:0] mul_res;
-    reg mul_flag;
+    reg [1:0] mul_flag;
     always @(posedge clk) begin
-        if (!resetn) mul_flag <= 1'b0;
-        else if (ctrl_i[`I_DO_DIV] && valid) mul_flag <= 1'b0;
-        else mul_flag <= ctrl_i[`I_DO_MUL] && valid;
+        if (!resetn) mul_flag <= 2'b00;
+        else if (ctrl_i[`I_DO_DIV] && valid) mul_flag <= 2'b00;
+        else mul_flag <= {mul_flag[0], ctrl_i[`I_DO_MUL] && valid};
     end
     
     mul u_mul(
@@ -122,14 +123,14 @@ module execute_stage(
     reg muldiv; // mul or div in progreses
     always @(posedge clk) begin
         if (!resetn) muldiv <= 1'b0;
-        else if (mul_flag || div_complete) muldiv <= 1'b0;
+        else if (mul_flag[1] || div_complete) muldiv <= 1'b0;
         else if ((ctrl_i[`I_DO_MUL] || ctrl_i[`I_DO_DIV]) && valid) muldiv <= 1'b1;
     end
     
     // HI/LO registers
     reg [31:0] hi, lo;
     always @(posedge clk) begin
-        if (mul_flag) begin
+        if (mul_flag[1]) begin
             hi <= mul_res[63:32];
             lo <= mul_res[31:0];
         end

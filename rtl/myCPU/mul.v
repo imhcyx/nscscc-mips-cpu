@@ -136,6 +136,16 @@ module mul(
       );
     end
   endgenerate
-  assign result = {out_carry[62:0], part_carry_reg[15]} + out_sum + part_carry_reg[16];
+  
+  reg [63:0] add_a_reg, add_b_reg;
+  reg add_cin_reg;
+  
+  always @(posedge mul_clk) begin
+    add_a_reg <= {out_carry[62:0], part_carry_reg[15]};
+    add_b_reg <= out_sum;
+    add_cin_reg <= part_carry_reg[16];
+  end
+  
+  assign result = add_a_reg + add_b_reg + add_cin_reg;
 
 endmodule
