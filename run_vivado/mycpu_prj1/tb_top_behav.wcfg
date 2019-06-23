@@ -12,14 +12,14 @@
    </db_ref_list>
    <zoom_setting>
       <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="638660497fs"></ZoomEndTime>
+      <ZoomEndTime time="1018241736fs"></ZoomEndTime>
       <Cursor1Time time="1000000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="196"></NameColumnWidth>
-      <ValueColumnWidth column_width="60"></ValueColumnWidth>
+      <NameColumnWidth column_width="194"></NameColumnWidth>
+      <ValueColumnWidth column_width="58"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="19" />
+   <WVObjectSize size="21" />
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -164,6 +164,14 @@
       <obj_property name="ElementShortName">if_pc[31:0]</obj_property>
       <obj_property name="ObjectShortName">if_pc[31:0]</obj_property>
    </wvobject>
+   <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/pc" type="array">
+      <obj_property name="ElementShortName">pc[31:0]</obj_property>
+      <obj_property name="ObjectShortName">pc[31:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/pc_next_flag" type="logic">
+      <obj_property name="ElementShortName">pc_next_flag</obj_property>
+      <obj_property name="ObjectShortName">pc_next_flag</obj_property>
+   </wvobject>
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/branch" type="logic">
       <obj_property name="ElementShortName">branch</obj_property>
       <obj_property name="ObjectShortName">branch</obj_property>
@@ -269,14 +277,6 @@
    <wvobject fp_name="group181" type="group">
       <obj_property name="label">ID</obj_property>
       <obj_property name="DisplayName">label</obj_property>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/fwd_id_raddr1_hit" type="logic">
-         <obj_property name="ElementShortName">fwd_id_raddr1_hit</obj_property>
-         <obj_property name="ObjectShortName">fwd_id_raddr1_hit</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/fwd_id_raddr2_hit" type="logic">
-         <obj_property name="ElementShortName">fwd_id_raddr2_hit</obj_property>
-         <obj_property name="ObjectShortName">fwd_id_raddr2_hit</obj_property>
-      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/fwd_ex_raddr1_hit" type="logic">
          <obj_property name="ElementShortName">fwd_ex_raddr1_hit</obj_property>
          <obj_property name="ObjectShortName">fwd_ex_raddr1_hit</obj_property>
@@ -384,26 +384,6 @@
       <obj_property name="label">EX</obj_property>
       <obj_property name="DisplayName">label</obj_property>
       <obj_property name="isExpanded"></obj_property>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/fwd_ex_raddr1_hit" type="logic">
-         <obj_property name="ElementShortName">fwd_ex_raddr1_hit</obj_property>
-         <obj_property name="ObjectShortName">fwd_ex_raddr1_hit</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/fwd_ex_raddr2_hit" type="logic">
-         <obj_property name="ElementShortName">fwd_ex_raddr2_hit</obj_property>
-         <obj_property name="ObjectShortName">fwd_ex_raddr2_hit</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/fwd_wb_raddr1_hit" type="logic">
-         <obj_property name="ElementShortName">fwd_wb_raddr1_hit</obj_property>
-         <obj_property name="ObjectShortName">fwd_wb_raddr1_hit</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/fwd_wb_raddr2_hit" type="logic">
-         <obj_property name="ElementShortName">fwd_wb_raddr2_hit</obj_property>
-         <obj_property name="ObjectShortName">fwd_wb_raddr2_hit</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/fwd_stall" type="logic">
-         <obj_property name="ElementShortName">fwd_stall</obj_property>
-         <obj_property name="ObjectShortName">fwd_stall</obj_property>
-      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/muldiv" type="logic">
          <obj_property name="ElementShortName">muldiv</obj_property>
          <obj_property name="ObjectShortName">muldiv</obj_property>
