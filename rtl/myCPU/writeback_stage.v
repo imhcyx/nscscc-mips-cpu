@@ -23,9 +23,6 @@ module writeback_stage(
     input   [31:0]              rdata2_i,
     input   [4 :0]              waddr_i
 );
-
-    wire valid;
-    assign valid = valid_i;
     
     // process length & extension for read
     wire [1:0] mem_byte_offset = eaddr_i[1:0];
@@ -64,7 +61,7 @@ module writeback_stage(
     assign done_o     = (ctrl_i[`I_MEM_R] || ctrl_i[`I_MEM_W]) && data_data_ok
                    || !(ctrl_i[`I_MEM_R] || ctrl_i[`I_MEM_W]);
 
-    assign rf_wen   = valid && done_o && (ctrl_i[`I_WEX]||ctrl_i[`I_WWB]);
+    assign rf_wen   = valid_i && done_o && (ctrl_i[`I_WEX]||ctrl_i[`I_WWB]);
     assign rf_waddr = waddr_i;
     assign rf_wdata = ctrl_i[`I_MEM_R] ? memdata : result_i;
 

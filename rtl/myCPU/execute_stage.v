@@ -56,8 +56,9 @@ module execute_stage(
 );
 
     wire valid;
+    reg done;
 
-    assign valid = valid_i && !exc_i;
+    assign valid = valid_i && !done && !exc_i;
 
     // imm extension
     wire [15:0] imm = `GET_IMM(inst_i);
@@ -119,6 +120,8 @@ module execute_stage(
         .complete(div_complete),
         .cancel(ctrl_i[`I_DO_MUL] && valid)
     );
+    
+    wire alu_of_exc = ctrl_i[`I_EXC_OF] && alu_of;
     
     reg muldiv; // mul or div in progreses
     always @(posedge clk) begin
@@ -189,25 +192,20 @@ module execute_stage(
         {3{ctrl_i[`I_SH]||ctrl_i[`I_LH]||ctrl_i[`I_LHU]}} & 3'd1 |
         {3{ctrl_i[`I_SB]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 3'd0;
 
-    // mem_exc_r saves the state of AdES and AdEL
-    // alu_of_r saves the ALU overflow state
-    // only intended to enhance timing for critical path
-    reg mem_exc_r, alu_of_r;
-    always @(posedge clk) mem_exc_r <= valid && (mem_adel || mem_ades);
-    always @(posedge clk) alu_of_r <= valid && ctrl_i[`I_EXC_OF] && alu_of;
-    
-    reg alu_of_ready; // for ADD/SUB instruction, wait 1 extra cycle for alu_of_r to be filled
-    always @(posedge clk) alu_of_ready <= valid && ctrl_i[`I_EXC_OF];
-
     assign done_o   = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
-                   || mem_exc_r
-                   || ctrl_i[`I_EXC_OF] && alu_of_ready
-                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]||ctrl_i[`I_EXC_OF]));
+                   || (mem_adel || mem_ades)
+                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+
+    always @(posedge clk) begin
+        if (!resetn) done <= 1'b0;
+        else if (ready_i) done <= 1'b0;
+        else if (valid_i && done_o) done <= 1'b1;
+    end
 
     // exceptions
-    wire exc = alu_of_r || mem_exc_r;
-    wire [4:0] exccode = {5{alu_of_r}} & `EXC_OV
+    wire exc = alu_of_exc || (mem_adel || mem_ades);
+    wire [4:0] exccode = {5{alu_of_exc}} & `EXC_OV
                        | {5{mem_adel}} & `EXC_ADEL
                        | {5{mem_ades}} & `EXC_ADES;
     assign commit = valid && exc || valid_i && exc_i;
@@ -224,7 +222,7 @@ module execute_stage(
                     | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
                     | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
                     | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
-    assign fwd_ok   = valid && done_o && ready_i && ctrl_i[`I_WEX];
+    assign fwd_ok   = valid && done_o && ctrl_i[`I_WEX];
 
     always @(posedge clk) begin
         if (!resetn) begin

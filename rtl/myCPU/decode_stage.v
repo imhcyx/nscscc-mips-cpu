@@ -68,6 +68,7 @@ module decode_stage(
 );
 
     wire valid;
+    reg done;
     
     reg cancelled;
     always @(posedge clk) begin
@@ -76,7 +77,7 @@ module decode_stage(
         else if (cancel_i) cancelled <= 1'b1;
     end
     
-    assign valid = valid_i && !exc_i && !cancel_i && !cancelled;
+    assign valid = valid_i && !done && !exc_i && !cancel_i && !cancelled;
     
     wire [`I_MAX-1:0] ctrl_sig;
 
@@ -257,43 +258,43 @@ module decode_stage(
                    || fwd_ex_raddr2_hit && !ex_fwd_ok
                    || fwd_wb_raddr1_hit && !wb_fwd_ok
                    || fwd_wb_raddr2_hit && !wb_fwd_ok;
-
-    // for branch/jump instructions, forwarded data are used after a delay of 1 cycle
-    reg [31:0] br_rdata1, br_rdata2;
-    reg br_forwarded;
-    always @(posedge clk) br_rdata1 <= fwd_rdata1;
-    always @(posedge clk) br_rdata2 <= fwd_rdata2;
-    always @(posedge clk) br_forwarded <= br_inst && !fwd_stall;
     
-    wire br_fwd_stall = br_inst && !br_forwarded;
-
+    
+    wire br_hazard   = br_inst && (fwd_ex_raddr1_hit||fwd_ex_raddr2_hit||fwd_wb_raddr1_hit||fwd_wb_raddr2_hit);
+    
     wire branch_ack_stall   = br_inst && !branch_ack;
 
-    assign done_o = !fwd_stall && !br_fwd_stall && !branch_ack_stall;
+    assign done_o = !fwd_stall && !br_hazard && !branch_ack_stall;
+
+    always @(posedge clk) begin
+        if (!resetn) done <= 1'b0;
+        else if (ready_i) done <= 1'b0;
+        else if (valid && done_o) done <= 1'b1;
+    end
 
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump
     always @(posedge clk) begin
         if (!resetn) prev_branch <= 1'b0;
-        else if (valid && done_o && ready_i) prev_branch <= br_inst;
+        else if (valid && ready_i) prev_branch <= br_inst;
     end
 
     // branch test
-    wire branch_taken   = (op_bne && (br_rdata1 != br_rdata2))
-                       || (op_beq && (br_rdata1 == br_rdata2))
-                       || ((op_bgez||op_bgezal) && !br_rdata1[31])
-                       || (op_blez && (br_rdata1[31] || br_rdata1 == 32'd0))
-                       || (op_bgtz && !(br_rdata1[31] || br_rdata1 == 32'd0))
-                       || ((op_bltz||op_bltzal) && br_rdata1[31]);
+    wire branch_taken   = (op_bne && (rf_rdata1 != rf_rdata2))
+                       || (op_beq && (rf_rdata1 == rf_rdata2))
+                       || ((op_bgez||op_bgezal) && !rf_rdata1[31])
+                       || (op_blez && (rf_rdata1[31] || rf_rdata1 == 32'd0))
+                       || (op_bgtz && !(rf_rdata1[31] || rf_rdata1 == 32'd0))
+                       || ((op_bltz||op_bltzal) && rf_rdata1[31]);
 
-    assign branch       = valid && done_o && ready_i && (op_j||op_jr||op_jal||op_jalr||branch_taken);
+    assign branch       = valid && done_o && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
     wire [15:0] imm = `GET_IMM(inst_i);
     wire [31:0] seq_pc = pc_i + 32'd4;
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
     wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
-    assign branch_pc    = {32{branch_taken}} & pc_branch
-                        | {32{op_jr||op_jalr}} & br_rdata1
+    assign branch_pc    = {32{!(op_j||op_jal||op_jr||op_jalr)}} & pc_branch
+                        | {32{op_jr||op_jalr}} & rf_rdata1
                         | {32{op_j||op_jal}} & pc_jump;
 
     // exceptions

@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0fs"></ZoomStartTime>
-      <ZoomEndTime time="1018241736fs"></ZoomEndTime>
-      <Cursor1Time time="1000000000fs"></Cursor1Time>
+      <ZoomStartTime time="28104411826083fs"></ZoomStartTime>
+      <ZoomEndTime time="28105533434784fs"></ZoomEndTime>
+      <Cursor1Time time="28104939500000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="194"></NameColumnWidth>
+      <NameColumnWidth column_width="190"></NameColumnWidth>
       <ValueColumnWidth column_width="58"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="21" />
+   <WVObjectSize size="20" />
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -95,6 +95,7 @@
    <wvobject fp_name="group178" type="group">
       <obj_property name="label">commit</obj_property>
       <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/commit" type="logic">
          <obj_property name="ElementShortName">commit</obj_property>
          <obj_property name="ObjectShortName">commit</obj_property>
@@ -168,10 +169,6 @@
       <obj_property name="ElementShortName">pc[31:0]</obj_property>
       <obj_property name="ObjectShortName">pc[31:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/pc_next_flag" type="logic">
-      <obj_property name="ElementShortName">pc_next_flag</obj_property>
-      <obj_property name="ObjectShortName">pc_next_flag</obj_property>
-   </wvobject>
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/branch" type="logic">
       <obj_property name="ElementShortName">branch</obj_property>
       <obj_property name="ObjectShortName">branch</obj_property>
@@ -184,14 +181,6 @@
       <obj_property name="label">IF</obj_property>
       <obj_property name="DisplayName">label</obj_property>
       <obj_property name="isExpanded"></obj_property>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/valid" type="logic">
-         <obj_property name="ElementShortName">valid</obj_property>
-         <obj_property name="ObjectShortName">valid</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/done" type="logic">
-         <obj_property name="ElementShortName">done</obj_property>
-         <obj_property name="ObjectShortName">done</obj_property>
-      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/pc_save" type="array">
          <obj_property name="ElementShortName">pc_save[31:0]</obj_property>
          <obj_property name="ObjectShortName">pc_save[31:0]</obj_property>
@@ -384,6 +373,18 @@
       <obj_property name="label">EX</obj_property>
       <obj_property name="DisplayName">label</obj_property>
       <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/done_o" type="logic">
+         <obj_property name="ElementShortName">done_o</obj_property>
+         <obj_property name="ObjectShortName">done_o</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/valid" type="logic">
+         <obj_property name="ElementShortName">valid</obj_property>
+         <obj_property name="ObjectShortName">valid</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/done" type="logic">
+         <obj_property name="ElementShortName">done</obj_property>
+         <obj_property name="ObjectShortName">done</obj_property>
+      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/muldiv" type="logic">
          <obj_property name="ElementShortName">muldiv</obj_property>
          <obj_property name="ObjectShortName">muldiv</obj_property>
@@ -395,6 +396,10 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/lo" type="array">
          <obj_property name="ElementShortName">lo[31:0]</obj_property>
          <obj_property name="ObjectShortName">lo[31:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/execute/exc" type="logic">
+         <obj_property name="ElementShortName">exc</obj_property>
+         <obj_property name="ObjectShortName">exc</obj_property>
       </wvobject>
    </wvobject>
    <wvobject fp_name="group63" type="group">
