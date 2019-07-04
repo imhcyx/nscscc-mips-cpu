@@ -69,8 +69,9 @@ module execute_stage(
 );
 
     wire valid;
+    reg done;
 
-    assign valid = valid_i && !exc_i;
+    assign valid = valid_i && !done && !exc_i;
 
     // imm extension
     wire [15:0] imm = `GET_IMM(inst_i);
@@ -220,6 +221,12 @@ module execute_stage(
                    || (mem_adel || mem_ades)
                    || valid_i && (tlbl || tlbs || tlbm);
 
+    always @(posedge clk) begin
+        if (!resetn) done <= 1'b0;
+        else if (ready_i) done <= 1'b0;
+        else if (valid_i && done_o) done <= 1'b1;
+    end
+
     // exceptions
     wire exc = alu_of_exc || mem_adel || mem_ades
             || valid_i && (tlbl || tlbs || tlbm);
@@ -245,6 +252,7 @@ module execute_stage(
                     | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
                     | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
                     | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
+
     assign fwd_ok   = valid && done_nonmem && ready_i && ctrl_i[`I_WEX];
 
     always @(posedge clk) begin

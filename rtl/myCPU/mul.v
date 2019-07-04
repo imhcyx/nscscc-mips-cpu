@@ -108,18 +108,10 @@ module mul(
   reg [16:0] part_carry_reg;
   integer k;
   always @(posedge mul_clk) begin
-    if (!resetn) begin
-      for (k=0; k<64; k=k+1) begin
-        part_switch_reg[k] <= 17'd0;
-      end
-      part_carry_reg <= 17'd0;
+    for (k=0; k<64; k=k+1) begin
+      part_switch_reg[k] <= part_switch[k];
     end
-    else begin
-      for (k=0; k<64; k=k+1) begin
-        part_switch_reg[k] <= part_switch[k];
-      end
-      part_carry_reg <= part_carry;
-    end
+    part_carry_reg <= part_carry;
   end
 
   wire [14:0] wallace_carry [64:0];

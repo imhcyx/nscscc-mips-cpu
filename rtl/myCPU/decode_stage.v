@@ -70,6 +70,7 @@ module decode_stage(
 );
 
     wire valid;
+    reg done;
     
     reg cancelled;
     always @(posedge clk) begin
@@ -78,7 +79,7 @@ module decode_stage(
         else if (cancel_i) cancelled <= 1'b1;
     end
     
-    assign valid = valid_i && !exc_i && !cancel_i && !cancelled;
+    assign valid = valid_i && !done && !exc_i && !cancel_i && !cancelled;
     
     wire [`I_MAX-1:0] ctrl_sig;
 
@@ -275,11 +276,17 @@ module decode_stage(
 
     assign done_o = !fwd_stall && !br_hazard && !branch_ack_stall;
 
+    always @(posedge clk) begin
+        if (!resetn) done <= 1'b0;
+        else if (ready_i) done <= 1'b0;
+        else if (valid && done_o) done <= 1'b1;
+    end
+
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump
     always @(posedge clk) begin
         if (!resetn) prev_branch <= 1'b0;
-        else if (valid && done_o && ready_i) prev_branch <= br_inst;
+        else if (valid && ready_i) prev_branch <= br_inst;
     end
 
     // branch test
@@ -290,13 +297,14 @@ module decode_stage(
                        || (op_bgtz && !(rf_rdata1[31] || rf_rdata1 == 32'd0))
                        || ((op_bltz||op_bltzal) && rf_rdata1[31]);
 
-    assign branch       = valid && done_o && ready_i && (op_j||op_jr||op_jal||op_jalr||branch_taken);
+    assign branch       = valid && done_o && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
     wire [15:0] imm = `GET_IMM(inst_i);
     wire [31:0] seq_pc = pc_i + 32'd4;
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
     wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
-    assign branch_pc    = {32{branch_taken}} & pc_branch
+
+    assign branch_pc    = {32{!(op_j||op_jal||op_jr||op_jalr)}} & pc_branch
                         | {32{op_jr||op_jalr}} & rf_rdata1
                         | {32{op_j||op_jal}} & pc_jump;
 
