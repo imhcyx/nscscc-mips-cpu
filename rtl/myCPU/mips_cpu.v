@@ -32,7 +32,7 @@ module mips_cpu(
     
     wire int_sig;
     
-    wire commit, commit_bd, commit_eret;
+    wire commit, commit_miss, commit_bd, commit_eret;
     wire [4:0] commit_code;
     wire [31:0] commit_epc, commit_bvaddr;
     
@@ -40,7 +40,13 @@ module mips_cpu(
     wire [31:0] cp0_wdata, cp0_rdata;
     wire [7:0] cp0_addr;
     
+    wire [31:0] cp0_index, cp0_random, cp0_entrylo0, cp0_entrylo1, cp0_entryhi;
+    wire [11:0] cp0_mask;
     wire [31:0] cp0_status, cp0_cause, cp0_epc;
+    
+    wire tlbr, tlbwi, tlbwr, tlbp;
+    wire [31:0] tlbr_lo0, tlbr_lo1, tlbr_hi, tlbp_index;
+    wire [11:0] tlbr_mask;
     
     cp0regs u_cp0regs(
         .clk            (clk),
@@ -51,18 +57,73 @@ module mips_cpu(
         .mtc0_data      (cp0_wdata),
         .mfc0_data      (cp0_rdata),
         .addr           (cp0_addr),
+        .tlbr           (tlbr),
+        .tlbr_lo0       (tlbr_lo0),
+        .tlbr_lo1       (tlbr_lo1),
+        .tlbr_hi        (tlbr_hi),
+        .tlbr_mask      (tlbr_mask),
+        .tlbwr          (tlbwr),
+        .tlbp           (tlbp),
+        .tlbp_index     (tlbp_index),
         .commit_exc     (commit),
         .commit_code    (commit_code),
         .commit_bd      (commit_bd),
         .commit_epc     (commit_epc),
         .commit_bvaddr  (commit_bvaddr),
         .commit_eret    (commit_eret),
+        .index          (cp0_index),
+        .random         (cp0_random),
+        .entrylo0       (cp0_entrylo0),
+        .entrylo1       (cp0_entrylo1),
+        .mask           (cp0_mask),
+        .entryhi        (cp0_entryhi),
         .status         (cp0_status),
         .cause          (cp0_cause),
         .epc            (cp0_epc)
     );
     
-    wire id_cancel;
+    // Address Translation
+    wire [31:0] inst_vaddr, data_vaddr;
+    wire [31:0] inst_paddr, data_paddr;
+    wire [2:0] inst_cache, data_cache;
+    wire inst_miss, data_miss;
+    wire inst_invalid, data_invalid;
+    wire data_modify;
+    
+    wire inst_kseg01 = inst_vaddr[31:30] == 2'b10;
+    wire data_kseg01 = data_vaddr[31:30] == 2'b10;
+    
+    wire [`TLB_IDXBITS-1:0] tlbw_idx = tlbwr ? cp0_random[`TLB_IDXBITS-1:0] : cp0_index[`TLB_IDXBITS-1:0];
+    
+    tlb u_tlb(
+        .clk            (clk),
+        .write          (tlbwi||tlbwr),
+        .idx            (tlbw_idx), // TODO: Random
+        .mask           (cp0_mask),
+        .entryhi        (cp0_entryhi),
+        .entrylo0       (cp0_entrylo0),
+        .entrylo1       (cp0_entrylo1),
+        .read_lo0       (tlbr_lo0),
+        .read_lo1       (tlbr_lo1),
+        .read_hi        (tlbr_hi),
+        .read_mask      (tlbr_mask),
+        .probe_index    (tlbp_index),
+        .inst_vaddr     (inst_vaddr),
+        .inst_paddr     (inst_paddr),
+        .inst_cache     (inst_cache),
+        .inst_miss      (inst_miss),
+        .inst_invalid   (inst_invalid),
+        .data_vaddr     (data_vaddr),
+        .data_store     (data_wr),
+        .data_paddr     (data_paddr),
+        .data_cache     (data_cache),
+        .data_miss      (data_miss),
+        .data_invalid   (data_invalid),
+        .data_modify    (data_modify)
+    );
+    
+    assign inst_addr = inst_kseg01 ? inst_vaddr & 32'h1fffffff : inst_paddr;
+    assign data_addr = data_kseg01 ? data_vaddr & 32'h1fffffff : data_paddr;
     
     //////////////////// IF ////////////////////
     
@@ -71,29 +132,25 @@ module mips_cpu(
     wire [31:0] if_pc;
     wire if_id_valid, id_if_ready;
     wire [31:0] if_id_pc, if_id_inst;
-    wire if_id_exc;
+    wire if_id_exc, if_id_exc_miss;
     wire [4:0] if_id_exccode;
+    
+    wire id_cancel;
     
     wire if_wait_data;
     wire branch, branch_ack;
     wire [31:0] branch_pc;
     
-    wire [31:0] vector = commit_eret ? cp0_epc : `VEC_OTHER_BEV;
-    
-    // introduce a delay for branch instruction because pc <= branch_pc + 32'd4 creates long paths
-    reg branched;
-    always @(posedge clk) begin
-        if (!resetn) branched <= 1'b0;
-        else if (branch && branch_ack) branched <= 1'b1;
-        else if (if_ready) branched <= 1'b0;
-    end
+    wire [31:0] vector =    commit_eret ? cp0_epc :
+                            commit_miss ? `VEC_REFILL_BEV :
+                            `VEC_OTHER_BEV;
     
     reg [31:0] pc;
     always @(posedge clk) begin
         if (!resetn) pc <= `VEC_RESET;
         else if (commit) pc <= vector;
-        else if (branch && branch_ack) pc <= branch_pc;
-        else if (if_ready) pc <= pc + 32'd4;
+        else if (if_ready) pc <= if_pc + 32'd4;
+        else pc <= if_pc;
     end
     
     reg if_valid_r;
@@ -101,23 +158,23 @@ module mips_cpu(
         if (!resetn) if_valid_r <= 1'b1;
         else if (commit) if_valid_r <= 1'b1;
         else if (id_cancel) if_valid_r <= 1'b0;
-        else if (branch && branch_ack) if_valid_r <= 1'b0;
-        else if (branched) if_valid_r <= 1'b1; 
     end
     
-    assign if_valid = if_valid_r && !id_cancel && !commit && !(branch && branch_ack);
+    assign if_valid = if_valid_r && !id_cancel && !commit;
     assign branch_ack = if_wait_data;
     
-    assign if_pc = pc;
+    assign if_pc = branch && branch_ack ? branch_pc : pc;
     
     fetch_stage fetch(
         .clk            (clk),
         .resetn         (resetn),
         .inst_req       (inst_req),
-        .inst_addr      (inst_addr),
+        .inst_addr      (inst_vaddr),
         .inst_rdata     (inst_rdata),
         .inst_addr_ok   (inst_addr_ok),
         .inst_data_ok   (inst_data_ok),
+        .inst_miss      (inst_miss&&!inst_kseg01),
+        .inst_invalid   (inst_invalid&&!inst_kseg01),
         .wait_data      (if_wait_data),
         .ready_o        (if_ready),
         .valid_i        (if_valid),
@@ -127,6 +184,7 @@ module mips_cpu(
         .pc_o           (if_id_pc),
         .inst_o         (if_id_inst),
         .exc_o          (if_id_exc),
+        .exc_miss_o     (if_id_exc_miss),
         .exccode_o      (if_id_exccode),
         .cancel_i       (id_cancel||commit)
     );
@@ -157,7 +215,7 @@ module mips_cpu(
     wire [`I_MAX-1:0] id_ex_ctrl;
     wire [31:0] id_ex_rdata1, id_ex_rdata2;
     wire [4:0] id_ex_waddr;
-    wire id_ex_exc, id_ex_bd, id_ex_eret;
+    wire id_ex_exc, id_ex_exc_miss, id_ex_bd, id_ex_eret;
     wire [4:0] id_ex_exccode;
     
     decode_stage decode(
@@ -190,8 +248,10 @@ module mips_cpu(
         .rdata2_o       (id_ex_rdata2),
         .waddr_o        (id_ex_waddr),
         .exc_i          (if_id_exc),
+        .exc_miss_i     (if_id_exc_miss),
         .exccode_i      (if_id_exccode),
         .exc_o          (id_ex_exc),
+        .exc_miss_o     (id_ex_exc_miss),
         .exccode_o      (id_ex_exccode),
         .bd_o           (id_ex_bd),
         .eret_o         (id_ex_eret),
@@ -213,10 +273,13 @@ module mips_cpu(
         .data_req       (data_req),
         .data_wr        (data_wr),
         .data_wstrb     (data_wstrb),
-        .data_addr      (data_addr),
+        .data_addr      (data_vaddr),
         .data_size      (data_size),
         .data_wdata     (data_wdata),
         .data_addr_ok   (data_addr_ok),
+        .data_miss      (data_miss&&!data_kseg01),
+        .data_invalid   (data_invalid&&!data_kseg01),
+        .data_modify    (data_modify&&!data_kseg01),
         .fwd_addr       (ex_fwd_addr),
         .fwd_data       (ex_fwd_data),
         .fwd_ok         (ex_fwd_ok),
@@ -224,6 +287,10 @@ module mips_cpu(
         .cp0_wdata      (cp0_wdata),
         .cp0_rdata      (cp0_rdata),
         .cp0_addr       (cp0_addr),
+        .tlbr           (tlbr),
+        .tlbwi          (tlbwi),
+        .tlbwr          (tlbwr),
+        .tlbp           (tlbp),
         .done_o         (ex_done),
         .valid_i        (id_ex_valid),
         .pc_i           (id_ex_pc),
@@ -242,10 +309,12 @@ module mips_cpu(
         .rdata2_o       (ex_wb_rdata2),
         .waddr_o        (ex_wb_waddr),
         .exc_i          (id_ex_exc),
+        .exc_miss_i     (id_ex_exc_miss),
         .exccode_i      (id_ex_exccode),
         .bd_i           (id_ex_bd),
         .eret_i         (id_ex_eret),
         .commit         (commit),
+        .commit_miss    (commit_miss),
         .commit_code    (commit_code),
         .commit_bd      (commit_bd),
         .commit_epc     (commit_epc),

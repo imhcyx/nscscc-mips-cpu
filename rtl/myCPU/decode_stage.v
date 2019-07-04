@@ -58,8 +58,10 @@ module decode_stage(
     
     // exception interface
     input                       exc_i,
+    input                       exc_miss_i,
     input   [4:0]               exccode_i,
     output reg                  exc_o,
+    output reg                  exc_miss_o,
     output reg [4:0]            exccode_o,
     output reg                  bd_o,
     output reg                  eret_o,
@@ -136,6 +138,10 @@ module decode_stage(
     wire op_ori       = op_d[13];
     wire op_xori      = op_d[14];
     wire op_lui       = op_d[15];
+    wire op_tlbr      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[1];
+    wire op_tlbwi     = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[2];
+    wire op_tlbwr     = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[6];
+    wire op_tlbp      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[8];
     wire op_eret      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[24];
     wire op_mfc0      = op_d[16] && rs_d[0] && sa_d[0] && inst_i[5:3] == 3'b000;
     wire op_mtc0      = op_d[16] && rs_d[4] && sa_d[0] && inst_i[5:3] == 3'b000;
@@ -157,7 +163,7 @@ module decode_stage(
                           op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||
                           op_bltz||op_bgez||op_bltzal||op_bgezal||op_j||op_jal||op_beq||op_bne||op_blez||op_bgtz||
                           op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||
-                          op_eret||op_mfc0||op_mtc0||
+                          op_tlbr||op_tlbwi||op_tlbwr||op_tlbp||op_eret||op_mfc0||op_mtc0||
                           op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr||op_sb||op_sh||op_swl||op_sw||op_swr);
 
     // write data to [rt] generated in ex stage
@@ -175,6 +181,10 @@ module decode_stage(
     assign ctrl_sig[`I_MFLO]      = op_mflo;
     assign ctrl_sig[`I_MTLO]      = op_mtlo;
     assign ctrl_sig[`I_LUI]       = op_lui;
+    assign ctrl_sig[`I_TLBR]      = op_tlbr;
+    assign ctrl_sig[`I_TLBWI]     = op_tlbwi;
+    assign ctrl_sig[`I_TLBWR]     = op_tlbwr;
+    assign ctrl_sig[`I_TLBP]      = op_tlbp;
     assign ctrl_sig[`I_ERET]      = op_eret;
     assign ctrl_sig[`I_MFC0]      = op_mfc0;
     assign ctrl_sig[`I_MTC0]      = op_mtc0;
@@ -257,19 +267,13 @@ module decode_stage(
                    || fwd_ex_raddr2_hit && !ex_fwd_ok
                    || fwd_wb_raddr1_hit && !wb_fwd_ok
                    || fwd_wb_raddr2_hit && !wb_fwd_ok;
-
-    // for branch/jump instructions, forwarded data are used after a delay of 1 cycle
-    reg [31:0] br_rdata1, br_rdata2;
-    reg br_forwarded;
-    always @(posedge clk) br_rdata1 <= fwd_rdata1;
-    always @(posedge clk) br_rdata2 <= fwd_rdata2;
-    always @(posedge clk) br_forwarded <= br_inst && !fwd_stall;
     
-    wire br_fwd_stall = br_inst && !br_forwarded;
-
+    
+    wire br_hazard   = br_inst && (fwd_ex_raddr1_hit||fwd_ex_raddr2_hit||fwd_wb_raddr1_hit||fwd_wb_raddr2_hit);
+    
     wire branch_ack_stall   = br_inst && !branch_ack;
 
-    assign done_o = !fwd_stall && !br_fwd_stall && !branch_ack_stall;
+    assign done_o = !fwd_stall && !br_hazard && !branch_ack_stall;
 
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump
@@ -279,12 +283,12 @@ module decode_stage(
     end
 
     // branch test
-    wire branch_taken   = (op_bne && (br_rdata1 != br_rdata2))
-                       || (op_beq && (br_rdata1 == br_rdata2))
-                       || ((op_bgez||op_bgezal) && !br_rdata1[31])
-                       || (op_blez && (br_rdata1[31] || br_rdata1 == 32'd0))
-                       || (op_bgtz && !(br_rdata1[31] || br_rdata1 == 32'd0))
-                       || ((op_bltz||op_bltzal) && br_rdata1[31]);
+    wire branch_taken   = (op_bne && (rf_rdata1 != rf_rdata2))
+                       || (op_beq && (rf_rdata1 == rf_rdata2))
+                       || ((op_bgez||op_bgezal) && !rf_rdata1[31])
+                       || (op_blez && (rf_rdata1[31] || rf_rdata1 == 32'd0))
+                       || (op_bgtz && !(rf_rdata1[31] || rf_rdata1 == 32'd0))
+                       || ((op_bltz||op_bltzal) && rf_rdata1[31]);
 
     assign branch       = valid && done_o && ready_i && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
@@ -293,7 +297,7 @@ module decode_stage(
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
     wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
     assign branch_pc    = {32{branch_taken}} & pc_branch
-                        | {32{op_jr||op_jalr}} & br_rdata1
+                        | {32{op_jr||op_jalr}} & rf_rdata1
                         | {32{op_j||op_jal}} & pc_jump;
 
     // exceptions
@@ -315,6 +319,7 @@ module decode_stage(
             rdata2_o    <= 32'd0;
             waddr_o     <= 5'd0;
             exc_o       <= 1'b0;
+            exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
             bd_o        <= 1'b0;
             eret_o      <= 1'b0;
@@ -330,6 +335,7 @@ module decode_stage(
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;
             exc_o       <= exc_i || valid && exc;
+            exc_miss_o  <= exc_miss_i;
             exccode_o   <= valid && exc ? exccode : exccode_i;
             bd_o        <= prev_branch;
             eret_o      <= valid && op_eret;

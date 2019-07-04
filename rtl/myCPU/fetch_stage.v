@@ -11,6 +11,10 @@ module fetch_stage(
     input               inst_addr_ok,
     input               inst_data_ok,
     
+    // tlb exceptions
+    input               inst_miss,
+    input               inst_invalid,
+    
     // indicates if there is an instruction waiting for data
     output              wait_data,
     
@@ -24,6 +28,7 @@ module fetch_stage(
     
     // exception interface
     output reg          exc_o,
+    output reg          exc_miss_o,
     output reg [4:0]    exccode_o,
     output reg [31:0]   badvaddr_o,
     input               cancel_i
@@ -42,7 +47,7 @@ module fetch_stage(
     // exceptions
     // for exceptions raised in IF_req, wait until IF_wait is emptied and then output
     wire if_adel = pc_i[1:0] != 2'd0;
-    wire if_req_exc = if_adel; // TODO: TLB exceptions
+    wire if_req_exc = if_adel || inst_miss || inst_invalid;
     
     wire wait_done;
     
@@ -57,7 +62,7 @@ module fetch_stage(
     
     wire ok_to_req = !wait_valid || ready_i;
     
-    assign inst_req     = valid_i && ok_to_req && !if_adel;
+    assign inst_req     = valid_i && ok_to_req && !if_req_exc;
     assign inst_addr    = pc_i;
     
     ////////// IF_wait //////////
@@ -96,6 +101,7 @@ module fetch_stage(
             pc_o        <= 32'd0;
             inst_o      <= 32'd0;
             exc_o       <= 1'b0;
+            exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
         end
         else if (ready_i) begin
@@ -103,7 +109,9 @@ module fetch_stage(
             pc_o        <= wait_valid ? pc_save : pc_i;
             inst_o      <= (!wait_valid && if_req_exc) ? 32'd0 : inst_saved ? inst_save : inst_rdata; // pass NOP on exception to prevent potential errors
             exc_o       <= !wait_valid && if_req_exc;
-            exccode_o   <= {5{if_adel}} & `EXC_ADEL;
+            exc_miss_o  <= !if_adel && inst_miss;
+            exccode_o   <= {5{if_adel}} & `EXC_ADEL
+                         | {5{!if_adel&&(inst_miss||inst_invalid)}} & `EXC_TLBL;
         end
     end
     

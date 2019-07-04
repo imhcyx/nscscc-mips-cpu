@@ -12,6 +12,11 @@ module execute_stage(
     output  [2 :0]              data_size,
     output  [31:0]              data_wdata,
     input                       data_addr_ok,
+    
+    // tlb exceptions
+    input                       data_miss,
+    input                       data_invalid,
+    input                       data_modify,
 
     // data forwarding
     output  [4 :0]              fwd_addr,
@@ -23,6 +28,12 @@ module execute_stage(
     output  [31:0]              cp0_wdata,
     input   [31:0]              cp0_rdata,
     output  [7 :0]              cp0_addr,
+    
+    // tlb read/write
+    output                      tlbr,
+    output                      tlbwi,
+    output                      tlbwr,
+    output                      tlbp,
 
     output                      done_o,
     input                       valid_i,
@@ -44,10 +55,12 @@ module execute_stage(
     
     // exception interface
     input                       exc_i,
+    input                       exc_miss_i,
     input   [4 :0]              exccode_i,
     input                       bd_i,
     input                       eret_i,
     output                      commit,
+    output                      commit_miss,
     output  [4 :0]              commit_code,
     output                      commit_bd,
     output  [31:0]              commit_epc,
@@ -120,6 +133,8 @@ module execute_stage(
         .cancel(ctrl_i[`I_DO_MUL] && valid)
     );
     
+    wire alu_of_exc = ctrl_i[`I_EXC_OF] && alu_of;
+    
     reg muldiv; // mul or div in progreses
     always @(posedge clk) begin
         if (!resetn) muldiv <= 1'b0;
@@ -148,6 +163,12 @@ module execute_stage(
     assign cp0_w = valid && ctrl_i[`I_MTC0];
     assign cp0_wdata = rdata2_i;
     assign cp0_addr = {`GET_RD(inst_i), inst_i[2:0]};
+    
+    // tlb instructions
+    assign tlbr = valid && ctrl_i[`I_TLBR];
+    assign tlbwi = valid && ctrl_i[`I_TLBWI];
+    assign tlbwr = valid && ctrl_i[`I_TLBWR];
+    assign tlbp = valid && ctrl_i[`I_TLBP];
 
     ///// memory access request /////
     wire [31:0] eff_addr = rdata1_i + imm_sx;
@@ -159,11 +180,14 @@ module execute_stage(
                    || (ctrl_i[`I_LH] || ctrl_i[`I_LHU]) && eff_addr[0] != 1'd0;
     wire mem_ades   = ctrl_i[`I_SW] && eff_addr[1:0] != 2'd0
                    || ctrl_i[`I_SH] && eff_addr[0] != 1'd0;
+    wire tlbl = ctrl_i[`I_MEM_R] && (data_miss || data_invalid);
+    wire tlbs = ctrl_i[`I_MEM_W] && (data_miss || data_invalid);
+    wire tlbm = ctrl_i[`I_MEM_W] && !data_miss && !data_invalid && data_modify;
     
     wire mem_read = ctrl_i[`I_MEM_R] && !mem_adel;
     wire mem_write = ctrl_i[`I_MEM_W] && !mem_ades;
     
-    assign data_req = valid && (mem_read || mem_write);
+    assign data_req = valid && (mem_read || mem_write) && !(data_miss || data_invalid || data_modify);
     assign data_wr = mem_write;
     
     // mem write mask
@@ -189,32 +213,29 @@ module execute_stage(
         {3{ctrl_i[`I_SH]||ctrl_i[`I_LH]||ctrl_i[`I_LHU]}} & 3'd1 |
         {3{ctrl_i[`I_SB]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 3'd0;
 
-    // mem_exc_r saves the state of AdES and AdEL
-    // alu_of_r saves the ALU overflow state
-    // only intended to enhance timing for critical path
-    reg mem_exc_r, alu_of_r;
-    always @(posedge clk) mem_exc_r <= valid && (mem_adel || mem_ades);
-    always @(posedge clk) alu_of_r <= valid && ctrl_i[`I_EXC_OF] && alu_of;
-    
-    reg alu_of_ready; // for ADD/SUB instruction, wait 1 extra cycle for alu_of_r to be filled
-    always @(posedge clk) alu_of_ready <= valid && ctrl_i[`I_EXC_OF];
-
-    assign done_o   = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
+    wire done_nonmem = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
+                    || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+    assign done_o   = done_nonmem
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
-                   || mem_exc_r
-                   || ctrl_i[`I_EXC_OF] && alu_of_ready
-                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]||ctrl_i[`I_EXC_OF]));
+                   || (mem_adel || mem_ades)
+                   || valid_i && (tlbl || tlbs || tlbm);
 
     // exceptions
-    wire exc = alu_of_r || mem_exc_r;
-    wire [4:0] exccode = {5{alu_of_r}} & `EXC_OV
+    wire exc = alu_of_exc || mem_adel || mem_ades
+            || valid_i && (tlbl || tlbs || tlbm);
+
+    wire [4:0] exccode = {5{alu_of_exc}} & `EXC_OV
                        | {5{mem_adel}} & `EXC_ADEL
-                       | {5{mem_ades}} & `EXC_ADES;
+                       | {5{mem_ades}} & `EXC_ADES
+                       | {5{tlbl}} & `EXC_TLBL
+                       | {5{tlbs}} & `EXC_TLBS
+                       | {5{tlbm}} & `EXC_MOD;
     assign commit = valid && exc || valid_i && exc_i;
+    assign commit_miss = valid && (mem_read || mem_write) && data_miss || valid_i && exc_miss_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = bd_i;
     assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
-    assign commit_bvaddr = (mem_adel || mem_ades) ? eff_addr : pc_i;
+    assign commit_bvaddr = exc_i ? pc_i : eff_addr;
     assign commit_eret = eret_i;
 
     assign fwd_addr = {5{valid_i}} & waddr_i;
@@ -224,7 +245,7 @@ module execute_stage(
                     | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
                     | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
                     | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
-    assign fwd_ok   = valid && done_o && ready_i && ctrl_i[`I_WEX];
+    assign fwd_ok   = valid && done_nonmem && ready_i && ctrl_i[`I_WEX];
 
     always @(posedge clk) begin
         if (!resetn) begin
