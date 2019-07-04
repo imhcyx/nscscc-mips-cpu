@@ -79,7 +79,7 @@ module decode_stage(
         else if (cancel_i) cancelled <= 1'b1;
     end
     
-    assign valid = valid_i && !done && !exc_i && !cancel_i && !cancelled;
+    assign valid = valid_i && !done && !cancelled; // && !exc_i && !cancel_i;
     
     wire [`I_MAX-1:0] ctrl_sig;
 
