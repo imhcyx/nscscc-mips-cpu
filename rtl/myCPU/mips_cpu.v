@@ -122,7 +122,6 @@ module mips_cpu(
         .data_modify    (data_modify)
     );
     
-    assign inst_addr = inst_kseg01 ? inst_vaddr & 32'h1fffffff : inst_paddr;
     assign data_addr = data_kseg01 ? data_vaddr & 32'h1fffffff : data_paddr;
     
     //////////////////// IF ////////////////////
@@ -169,12 +168,15 @@ module mips_cpu(
         .clk            (clk),
         .resetn         (resetn),
         .inst_req       (inst_req),
-        .inst_addr      (inst_vaddr),
+        .inst_addr      (inst_addr),
         .inst_rdata     (inst_rdata),
         .inst_addr_ok   (inst_addr_ok),
         .inst_data_ok   (inst_data_ok),
-        .inst_miss      (inst_miss&&!inst_kseg01),
-        .inst_invalid   (inst_invalid&&!inst_kseg01),
+        .tlb_write      (tlbwi||tlbwr),
+        .tlb_vaddr      (inst_vaddr),
+        .tlb_paddr      (inst_paddr),
+        .tlb_miss       (inst_miss),
+        .tlb_invalid    (inst_invalid),
         .wait_data      (if_wait_data),
         .ready_o        (if_ready),
         .valid_i        (if_valid),

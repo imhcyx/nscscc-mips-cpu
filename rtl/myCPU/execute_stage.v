@@ -238,7 +238,7 @@ module execute_stage(
                        | {5{tlbs}} & `EXC_TLBS
                        | {5{tlbm}} & `EXC_MOD;
     assign commit = valid && exc || valid_i && exc_i;
-    assign commit_miss = valid && (mem_read || mem_write) && data_miss || valid_i && exc_miss_i;
+    assign commit_miss = valid && (mem_read || mem_write) && data_miss || valid_i && exc_i && exc_miss_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = bd_i;
     assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
