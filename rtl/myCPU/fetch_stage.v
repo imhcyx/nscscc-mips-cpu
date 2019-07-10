@@ -49,11 +49,11 @@ module fetch_stage(
     
     // tlb query cache
     reg tlbc_valid; // indicates query cache validity
-    reg [19:0] tlbc_hiaddr;
+    reg [19:0] tlbc_vaddr_hi, tlbc_paddr_hi;
     reg tlbc_miss, tlbc_invalid;
     
     wire kseg01 = pc_i[31:30] == 2'b10;
-    wire tlbc_hit = tlbc_valid && tlbc_hiaddr == pc_i[31:12];
+    wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == pc_i[31:12];
     
     // pc is saved for tlb lookup
     reg [31:0] pc_save;
@@ -75,7 +75,8 @@ module fetch_stage(
     end
     
     always @(posedge clk) begin
-        if (pc_saved) tlbc_hiaddr <= tlb_paddr[31:12];
+        if (pc_saved) tlbc_vaddr_hi <= pc_save[31:12];
+        if (pc_saved) tlbc_paddr_hi <= tlb_paddr[31:12];
         if (pc_saved) tlbc_miss <= tlb_miss;
         if (pc_saved) tlbc_invalid <= tlb_invalid;
     end
@@ -109,15 +110,15 @@ module fetch_stage(
     wire ok_to_req = (!wait_valid || wait_done && ready_i);
     
     assign inst_req     = valid_i && ok_to_req && !if_req_exc && (kseg01 || tlbc_hit || tlb_lookup_ok);
-    assign inst_addr    = tlb_lookup_ok ? {tlbc_hiaddr, pc_save[11:0]} : pc_i;
+    assign inst_addr    = (tlbc_hit || tlb_lookup_ok) ? {tlbc_paddr_hi, pc_save[11:0]} : pc_i;
     
-    assign ready_o      = ok_to_req && !pc_saved && !if_adel;
+    assign ready_o      = ok_to_req && !pc_saved && !if_adel && (inst_addr_ok || !kseg01 && !tlbc_hit);
     
     ////////// IF_wait //////////
     
     // IF_wait pc
     reg [31:0] ifw_pc;
-    always @(posedge clk) if (inst_addr_ok) ifw_pc <= inst_addr;
+    always @(posedge clk) if (inst_addr_ok) ifw_pc <= pc_saved ? pc_save : pc_i;
     
     // instruction is saved in case of ID is stalled
     reg [31:0] inst_save;

@@ -342,11 +342,11 @@ module decode_stage(
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;
-            exc_o       <= exc_i || valid && exc;
+            exc_o       <= exc_i || valid_i && exc;
             exc_miss_o  <= exc_miss_i;
-            exccode_o   <= valid && exc ? exccode : exccode_i;
+            exccode_o   <= valid_i && exc ? exccode : exccode_i;
             bd_o        <= prev_branch;
-            eret_o      <= valid && op_eret;
+            eret_o      <= valid_i && op_eret;
         end
     end
 
