@@ -262,7 +262,7 @@ module decode_stage(
                             : fwd_wb_raddr2_hit && wb_fwd_ok ? wb_fwd_data
                             : rf_rdata2;
 
-    wire br_inst = valid && (op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr);
+    wire br_inst = op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr;
     
     wire fwd_stall  = fwd_ex_raddr1_hit && !ex_fwd_ok
                    || fwd_ex_raddr2_hit && !ex_fwd_ok
@@ -270,9 +270,9 @@ module decode_stage(
                    || fwd_wb_raddr2_hit && !wb_fwd_ok;
     
     
-    wire br_hazard   = br_inst && (fwd_ex_raddr1_hit||fwd_ex_raddr2_hit||fwd_wb_raddr1_hit||fwd_wb_raddr2_hit);
+    wire br_hazard   = valid && br_inst && (fwd_ex_raddr1_hit||fwd_ex_raddr2_hit||fwd_wb_raddr1_hit||fwd_wb_raddr2_hit);
     
-    wire branch_ack_stall   = br_inst && !branch_ack;
+    wire branch_ack_stall   = valid && br_inst && !branch_ack;
 
     assign done_o = !fwd_stall && !br_hazard && !branch_ack_stall;
 
@@ -286,16 +286,17 @@ module decode_stage(
     reg prev_branch; // if previous instruction is branch/jump
     always @(posedge clk) begin
         if (!resetn) prev_branch <= 1'b0;
-        else if (valid && ready_i) prev_branch <= br_inst;
+        else if (valid_i && ready_i) prev_branch <= br_inst;
     end
 
     // branch test
-    wire branch_taken   = (op_bne && (rf_rdata1 != rf_rdata2))
+    wire branch_taken   = valid
+                       && ((op_bne && (rf_rdata1 != rf_rdata2))
                        || (op_beq && (rf_rdata1 == rf_rdata2))
                        || ((op_bgez||op_bgezal) && !rf_rdata1[31])
                        || (op_blez && (rf_rdata1[31] || rf_rdata1 == 32'd0))
                        || (op_bgtz && !(rf_rdata1[31] || rf_rdata1 == 32'd0))
-                       || ((op_bltz||op_bltzal) && rf_rdata1[31]);
+                       || ((op_bltz||op_bltzal) && rf_rdata1[31]));
 
     assign branch       = valid && done_o && (op_j||op_jr||op_jal||op_jalr||branch_taken);
 
