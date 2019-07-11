@@ -88,10 +88,7 @@ module mips_cpu(
     wire [2:0] inst_cache, data_cache;
     wire inst_miss, data_miss;
     wire inst_invalid, data_invalid;
-    wire data_modify;
-    
-    wire inst_kseg01 = inst_vaddr[31:30] == 2'b10;
-    wire data_kseg01 = data_vaddr[31:30] == 2'b10;
+    wire data_dirty;
     
     wire [`TLB_IDXBITS-1:0] tlbw_idx = tlbwr ? cp0_random[`TLB_IDXBITS-1:0] : cp0_index[`TLB_IDXBITS-1:0];
     
@@ -115,15 +112,12 @@ module mips_cpu(
         .inst_miss      (inst_miss),
         .inst_invalid   (inst_invalid),
         .data_vaddr     (data_vaddr),
-        .data_store     (data_wr),
         .data_paddr     (data_paddr),
         .data_cache     (data_cache),
         .data_miss      (data_miss),
         .data_invalid   (data_invalid),
-        .data_modify    (data_modify)
+        .data_dirty     (data_dirty)
     );
-    
-    assign data_addr = data_kseg01 ? data_vaddr & 32'h1fffffff : data_paddr;
     
     //////////////////// IF ////////////////////
     
@@ -276,13 +270,15 @@ module mips_cpu(
         .data_req       (data_req),
         .data_wr        (data_wr),
         .data_wstrb     (data_wstrb),
-        .data_addr      (data_vaddr),
+        .data_addr      (data_addr),
         .data_size      (data_size),
         .data_wdata     (data_wdata),
         .data_addr_ok   (data_addr_ok),
-        .data_miss      (data_miss&&!data_kseg01),
-        .data_invalid   (data_invalid&&!data_kseg01),
-        .data_modify    (data_modify&&!data_kseg01),
+        .tlb_vaddr      (data_vaddr),
+        .tlb_paddr      (data_paddr),
+        .tlb_miss       (data_miss),
+        .tlb_invalid    (data_invalid),
+        .tlb_dirty      (data_dirty),
         .fwd_addr       (ex_fwd_addr),
         .fwd_data       (ex_fwd_data),
         .fwd_ok         (ex_fwd_ok),

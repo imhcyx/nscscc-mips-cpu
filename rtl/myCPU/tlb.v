@@ -31,12 +31,11 @@ module tlb
     output              inst_miss,
     output              inst_invalid,
     input [31:0]        data_vaddr,
-    input               data_store,
     output [31:0]       data_paddr,
     output [2:0]        data_cache,
     output              data_miss,
     output              data_invalid,
-    output              data_modify
+    output              data_dirty
 );
 
     reg [11:0]  tlb_mask    [ENTRIES-1:0];
@@ -152,7 +151,7 @@ module tlb
     assign data_cache    = data_lookup_c[ENTRIES];
     assign data_miss     = ~|data_match;
     assign data_invalid  = ~data_lookup_v[ENTRIES];
-    assign data_modify   = data_store && ~data_lookup_d[ENTRIES];
+    assign data_dirty    = data_lookup_d[ENTRIES];
     
     // probe
     
