@@ -51,7 +51,6 @@ module tlb
     reg         tlb_v0      [ENTRIES-1:0];
     reg         tlb_v1      [ENTRIES-1:0];
 
-`ifdef SIMULATION
     integer kk;
     initial begin
         for (kk=0; kk<ENTRIES; kk=kk+1) begin
@@ -69,7 +68,6 @@ module tlb
             tlb_v1[kk]      = 0;
         end
     end
-`endif
 
     always @(posedge clk) begin
         if (write) begin
