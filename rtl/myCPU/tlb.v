@@ -6,7 +6,8 @@ module tlb
     parameter       IDXBITS = `TLB_IDXBITS
 )
 (
-    input           clk,
+    input               clk,
+    input               resetn,
 
     // TLB entry write
     input               write,
@@ -52,25 +53,25 @@ module tlb
     reg         tlb_v1      [ENTRIES-1:0];
 
     integer kk;
-    initial begin
-        for (kk=0; kk<ENTRIES; kk=kk+1) begin
-            tlb_mask[kk]    = 0;
-            tlb_vpn2[kk]    = 0;
-            tlb_g[kk]       = 0;
-            tlb_asid[kk]    = 0;
-            tlb_pfn0[kk]    = 0;
-            tlb_c0[kk]      = 0;
-            tlb_d0[kk]      = 0;
-            tlb_v0[kk]      = 0;
-            tlb_pfn1[kk]    = 0;
-            tlb_c1[kk]      = 0;
-            tlb_d1[kk]      = 0;
-            tlb_v1[kk]      = 0;
-        end
-    end
 
     always @(posedge clk) begin
-        if (write) begin
+        if (!resetn) begin
+            for (kk=0; kk<ENTRIES; kk=kk+1) begin
+                tlb_mask[kk]    = 0;
+                tlb_vpn2[kk]    = 0;
+                tlb_g[kk]       = 0;
+                tlb_asid[kk]    = 0;
+                tlb_pfn0[kk]    = 0;
+                tlb_c0[kk]      = 0;
+                tlb_d0[kk]      = 0;
+                tlb_v0[kk]      = 0;
+                tlb_pfn1[kk]    = 0;
+                tlb_c1[kk]      = 0;
+                tlb_d1[kk]      = 0;
+                tlb_v1[kk]      = 0;
+            end
+        end
+        else if (write) begin
             tlb_mask[idx]   <= mask;
             tlb_vpn2[idx]   <= entryhi[`ENTRYHI_VPN2] & ~mask;
             tlb_g[idx]      <= entrylo0[`ENTRYLO_G] & entrylo1[`ENTRYLO_G];

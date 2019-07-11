@@ -97,6 +97,7 @@ module mips_cpu(
     
     tlb u_tlb(
         .clk            (clk),
+        .resetn         (resetn),
         .write          (tlbwi||tlbwr),
         .idx            (tlbw_idx), // TODO: Random
         .mask           (cp0_mask),
