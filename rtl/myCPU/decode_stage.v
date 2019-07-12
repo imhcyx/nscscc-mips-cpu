@@ -54,6 +54,7 @@ module decode_stage(
     output reg [`I_MAX-1:0]     ctrl_o,
     output reg [31:0]           rdata1_o,
     output reg [31:0]           rdata2_o,
+    output reg [31:0]           eaddr_o,
     output reg [4 :0]           waddr_o,
     
     // exception interface
@@ -325,6 +326,7 @@ module decode_stage(
             ctrl_o      <= `I_MAX'd0;
             rdata1_o    <= 32'd0;
             rdata2_o    <= 32'd0;
+            eaddr_o     <= 32'd0;
             waddr_o     <= 5'd0;
             exc_o       <= 1'b0;
             exc_miss_o  <= 1'b0;
@@ -339,6 +341,7 @@ module decode_stage(
             ctrl_o      <= ctrl_sig;
             rdata1_o    <= fwd_rdata1;
             rdata2_o    <= fwd_rdata2;
+            eaddr_o     <= fwd_rdata1 + {{16{imm[15]}}, imm};
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
                          | {5{inst_r31_wex}}                & 5'd31;

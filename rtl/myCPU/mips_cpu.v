@@ -140,10 +140,11 @@ module mips_cpu(
                             `VEC_OTHER_BEV;
     
     reg [31:0] pc;
+    (*keep = "true"*)wire [31:0] next_pc = if_pc + 32'd4;
     always @(posedge clk) begin
         if (!resetn) pc <= `VEC_RESET;
         else if (commit) pc <= vector;
-        else if (if_ready) pc <= if_pc + 32'd4;
+        else if (if_ready) pc <= next_pc;
         else pc <= if_pc;
     end
     
@@ -210,7 +211,7 @@ module mips_cpu(
     wire id_ex_valid, ex_id_ready, id_done;
     wire [31:0] id_ex_pc, id_ex_inst;
     wire [`I_MAX-1:0] id_ex_ctrl;
-    wire [31:0] id_ex_rdata1, id_ex_rdata2;
+    wire [31:0] id_ex_rdata1, id_ex_rdata2, id_ex_eaddr;
     wire [4:0] id_ex_waddr;
     wire id_ex_exc, id_ex_exc_miss, id_ex_bd, id_ex_eret;
     wire [4:0] id_ex_exccode;
@@ -243,6 +244,7 @@ module mips_cpu(
         .ctrl_o         (id_ex_ctrl),
         .rdata1_o       (id_ex_rdata1),
         .rdata2_o       (id_ex_rdata2),
+        .eaddr_o        (id_ex_eaddr),
         .waddr_o        (id_ex_waddr),
         .exc_i          (if_id_exc),
         .exc_miss_i     (if_id_exc_miss),
@@ -297,6 +299,7 @@ module mips_cpu(
         .ctrl_i         (id_ex_ctrl),
         .rdata1_i       (id_ex_rdata1),
         .rdata2_i       (id_ex_rdata2),
+        .eaddr_i        (id_ex_eaddr),
         .waddr_i        (id_ex_waddr),
         .ready_i        (wb_ex_ready),
         .valid_o        (ex_wb_valid),

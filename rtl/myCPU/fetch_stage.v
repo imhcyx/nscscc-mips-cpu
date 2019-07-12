@@ -82,7 +82,7 @@ module fetch_stage(
     
     always @(posedge clk) begin
         if (!resetn) tlbc_valid <= 1'b0;
-        else if (tlb_write) tlbc_valid <= 1'b0;
+        else if (tlb_write || cancel_i) tlbc_valid <= 1'b0;
         else if (qstate == 2'd1) tlbc_valid <= 1'b1;
     end
     
@@ -97,7 +97,7 @@ module fetch_stage(
     
     // exceptions
     // for exceptions raised in IF_req, wait until IF_wait is emptied and then output
-    wire if_req_exc = qstate == 2'd0 && (if_adel || tlbc_hit && (tlbc_miss || tlbc_invalid))
+    wire if_req_exc = qstate == 2'd0 && if_adel
                    || qstate == 2'd2 && (tlbc_miss || tlbc_invalid);
     
     // after addr is sent, the instruction enters an instruction-wait(IW) sub-stage, indicated by wait_valid

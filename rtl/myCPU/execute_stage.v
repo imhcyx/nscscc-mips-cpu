@@ -44,6 +44,7 @@ module execute_stage(
     input   [`I_MAX-1:0]        ctrl_i,
     input   [31:0]              rdata1_i,
     input   [31:0]              rdata2_i,
+    input   [31:0]              eaddr_i,
     input   [4 :0]              waddr_i,
     input                       ready_i,
     output reg                  valid_o,
@@ -183,15 +184,15 @@ module execute_stage(
     reg [19:0] tlbc_vaddr_hi, tlbc_paddr_hi;
     reg tlbc_miss, tlbc_invalid, tlbc_dirty;
     
-    wire [31:0] eff_addr = rdata1_i + imm_sx;
-    wire [31:0] mem_addr_aligned = eff_addr & 32'hfffffffc;
-    wire [1:0] mem_byte_offset = eff_addr[1:0];
+    //wire [31:0] eff_addr = rdata1_i + imm_sx;
+    wire [31:0] mem_addr_aligned = eaddr_i & 32'hfffffffc;
+    wire [1:0] mem_byte_offset = eaddr_i[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
-    wire mem_adel   = ctrl_i[`I_LW] && eff_addr[1:0] != 2'd0
-                   || (ctrl_i[`I_LH] || ctrl_i[`I_LHU]) && eff_addr[0] != 1'd0;
-    wire mem_ades   = ctrl_i[`I_SW] && eff_addr[1:0] != 2'd0
-                   || ctrl_i[`I_SH] && eff_addr[0] != 1'd0;
+    wire mem_adel   = ctrl_i[`I_LW] && eaddr_i[1:0] != 2'd0
+                   || (ctrl_i[`I_LH] || ctrl_i[`I_LHU]) && eaddr_i[0] != 1'd0;
+    wire mem_ades   = ctrl_i[`I_SW] && eaddr_i[1:0] != 2'd0
+                   || ctrl_i[`I_SH] && eaddr_i[0] != 1'd0;
     
     wire mem_read = ctrl_i[`I_MEM_R] && !mem_adel;
     wire mem_write = ctrl_i[`I_MEM_W] && !mem_ades;
@@ -303,7 +304,7 @@ module execute_stage(
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = bd_i;
     assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
-    assign commit_bvaddr = exc_i ? pc_i : eff_addr;
+    assign commit_bvaddr = exc_i ? pc_i : eaddr_i;
     assign commit_eret = eret_i;
 
     assign fwd_addr = {5{valid_i}} & waddr_i;
@@ -334,7 +335,7 @@ module execute_stage(
             ctrl_o      <= ctrl_i;
             waddr_o     <= waddr_i;
             result_o    <= fwd_data;
-            eaddr_o     <= eff_addr;
+            eaddr_o     <= eaddr_i;
             rdata2_o    <= rdata2_i;
         end
     end
