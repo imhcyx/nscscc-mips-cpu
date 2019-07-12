@@ -55,7 +55,7 @@ module fetch_stage(
         else if (wait_done && ready_i) wait_valid <= 1'b0;
     end
     
-    wire ok_to_req = !wait_valid || wait_done && ready_i;
+    wire ok_to_req = !wait_valid || ready_i;
     
     assign inst_req     = valid_i && ok_to_req && !if_adel;
     assign inst_addr    = pc_i;
