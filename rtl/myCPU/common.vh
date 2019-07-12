@@ -21,7 +21,36 @@
 `define CP0_TAGLO_RD        5'd28
 `define CP0_TAGHI_RD        5'd29
 
+// TLB parameters
+`define TLB_IDXBITS         5
+`define TLB_ENTRIES         (1<<`TLB_IDXBITS)
+
 // Coprocessor 0 Register Bits
+// Index (0, 0)
+`define INDEX_P             31
+`define INDEX_INDEX         `TLB_IDXBITS-1:0
+
+// Random (1, 0)
+`define RANDOM_RANDOM       `TLB_IDXBITS-1:0
+
+// EntryLo0, EntryLo1 (2 and 3, 0)
+`define ENTRYLO_PFN         25:6
+`define ENTRYLO_C           5:3
+`define ENTRYLO_D           2
+`define ENTRYLO_V           1
+`define ENTRYLO_G           0
+
+// PageMask (5, 0)
+// Note: length of mask field is set to 12
+`define PAGEMASK_MASK       24:13
+
+// Wired (6, 0)
+`define WIRED_WIRED         `TLB_IDXBITS-1:0
+
+// EntryHi (10, 0)
+`define ENTRYHI_VPN2        31:13
+`define ENTRYHI_ASID        7:0
+
 // Status (12, 0)
 `define STATUS_CU0          28
 `define STATUS_BEV          22
@@ -106,35 +135,39 @@
 `define I_MFLO      13
 `define I_MTLO      14
 `define I_LUI       15
-`define I_ERET      16
-`define I_MFC0      17
-`define I_MTC0      18
-`define I_LB        19
-`define I_LH        20
-`define I_LWL       21
-`define I_LW        22
-`define I_LBU       23
-`define I_LHU       24
-`define I_LWR       25
-`define I_SB        26
-`define I_SH        27
-`define I_SWL       28
-`define I_SW        29
-`define I_SWR       30
+`define I_TLBR      16
+`define I_TLBWI     17
+`define I_TLBWR     18
+`define I_TLBP      19
+`define I_ERET      20
+`define I_MFC0      21
+`define I_MTC0      22
+`define I_LB        23
+`define I_LH        24
+`define I_LWL       25
+`define I_LW        26
+`define I_LBU       27
+`define I_LHU       28
+`define I_LWR       29
+`define I_SB        30
+`define I_SH        31
+`define I_SWL       32
+`define I_SW        33
+`define I_SWR       34
 
-`define I_MEM_R     31
-`define I_MEM_W     32
-`define I_RS_R      33
-`define I_RT_R      34
-`define I_WEX       35
-`define I_WWB       36
-`define I_IMM_SX    37
-`define I_ALU_A_SA  38
-`define I_ALU_B_IMM 39
-`define I_LINK      40
-`define I_DO_MUL    41
-`define I_DO_DIV    42
-`define I_MD_SIGN   43
-`define I_EXC_OF    44
+`define I_MEM_R     35
+`define I_MEM_W     36
+`define I_RS_R      37
+`define I_RT_R      38
+`define I_WEX       39
+`define I_WWB       40
+`define I_IMM_SX    41
+`define I_ALU_A_SA  42
+`define I_ALU_B_IMM 43
+`define I_LINK      44
+`define I_DO_MUL    45
+`define I_DO_DIV    46
+`define I_MD_SIGN   47
+`define I_EXC_OF    48
 
-`define I_MAX       45
+`define I_MAX       49

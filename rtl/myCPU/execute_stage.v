@@ -12,6 +12,13 @@ module execute_stage(
     output  [2 :0]              data_size,
     output  [31:0]              data_wdata,
     input                       data_addr_ok,
+    
+    // tlb
+    output  [31:0]              tlb_vaddr,
+    input   [31:0]              tlb_paddr,
+    input                       tlb_miss,
+    input                       tlb_invalid,
+    input                       tlb_dirty,
 
     // data forwarding
     output  [4 :0]              fwd_addr,
@@ -23,6 +30,12 @@ module execute_stage(
     output  [31:0]              cp0_wdata,
     input   [31:0]              cp0_rdata,
     output  [7 :0]              cp0_addr,
+    
+    // tlb read/write
+    output                      tlbr,
+    output                      tlbwi,
+    output                      tlbwr,
+    output                      tlbp,
 
     output                      done_o,
     input                       valid_i,
@@ -31,6 +44,7 @@ module execute_stage(
     input   [`I_MAX-1:0]        ctrl_i,
     input   [31:0]              rdata1_i,
     input   [31:0]              rdata2_i,
+    input   [31:0]              eaddr_i,
     input   [4 :0]              waddr_i,
     input                       ready_i,
     output reg                  valid_o,
@@ -44,10 +58,12 @@ module execute_stage(
     
     // exception interface
     input                       exc_i,
+    input                       exc_miss_i,
     input   [4 :0]              exccode_i,
     input                       bd_i,
     input                       eret_i,
     output                      commit,
+    output                      commit_miss,
     output  [4 :0]              commit_code,
     output                      commit_bd,
     output  [31:0]              commit_epc,
@@ -151,22 +167,89 @@ module execute_stage(
     assign cp0_w = valid && ctrl_i[`I_MTC0];
     assign cp0_wdata = rdata2_i;
     assign cp0_addr = {`GET_RD(inst_i), inst_i[2:0]};
+    
+    // tlb instructions
+    assign tlbr = valid && ctrl_i[`I_TLBR];
+    assign tlbwi = valid && ctrl_i[`I_TLBWI];
+    assign tlbwr = valid && ctrl_i[`I_TLBWR];
+    assign tlbp = valid && ctrl_i[`I_TLBP];
 
     ///// memory access request /////
-    wire [31:0] eff_addr = rdata1_i + imm_sx;
-    wire [31:0] mem_addr_aligned = eff_addr & 32'hfffffffc;
-    wire [1:0] mem_byte_offset = eff_addr[1:0];
+    
+    // tlb query fsm (0=check/bypass, 1=query, 2=request)
+    reg [1:0] qstate, qstate_next;
+    
+    // tlb query cache
+    reg tlbc_valid; // indicates query cache validity
+    reg [19:0] tlbc_vaddr_hi, tlbc_paddr_hi;
+    reg tlbc_miss, tlbc_invalid, tlbc_dirty;
+    
+    //wire [31:0] eff_addr = rdata1_i + imm_sx;
+    wire [31:0] mem_addr_aligned = eaddr_i & 32'hfffffffc;
+    wire [1:0] mem_byte_offset = eaddr_i[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
-    wire mem_adel   = ctrl_i[`I_LW] && eff_addr[1:0] != 2'd0
-                   || (ctrl_i[`I_LH] || ctrl_i[`I_LHU]) && eff_addr[0] != 1'd0;
-    wire mem_ades   = ctrl_i[`I_SW] && eff_addr[1:0] != 2'd0
-                   || ctrl_i[`I_SH] && eff_addr[0] != 1'd0;
+    wire mem_adel   = ctrl_i[`I_LW] && eaddr_i[1:0] != 2'd0
+                   || (ctrl_i[`I_LH] || ctrl_i[`I_LHU]) && eaddr_i[0] != 1'd0;
+    wire mem_ades   = ctrl_i[`I_SW] && eaddr_i[1:0] != 2'd0
+                   || ctrl_i[`I_SH] && eaddr_i[0] != 1'd0;
     
     wire mem_read = ctrl_i[`I_MEM_R] && !mem_adel;
     wire mem_write = ctrl_i[`I_MEM_W] && !mem_ades;
     
-    assign data_req = valid && (mem_read || mem_write);
+    
+    wire kseg01 = mem_addr_aligned[31:30] == 2'b10;
+    wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == mem_addr_aligned[31:12];
+    
+    wire tlbc_ok = qstate == 2'd0 && tlbc_hit
+                || qstate == 2'd2;
+    
+    wire tlbl = ctrl_i[`I_MEM_R] && tlbc_ok && (tlbc_miss || tlbc_invalid);
+    wire tlbs = ctrl_i[`I_MEM_W] && tlbc_ok && (tlbc_miss || tlbc_invalid);
+    wire tlbm = ctrl_i[`I_MEM_W] && tlbc_ok && !tlbc_miss && !tlbc_invalid && !tlbc_dirty;
+    
+    wire mem_exc = qstate == 2'd0 && (mem_adel || mem_ades) || tlbl || tlbs || tlbm;
+    
+    always @(posedge clk) begin
+        if (!resetn) qstate <= 2'd0;
+        else qstate <= qstate_next;
+    end
+    
+    always @(*) begin
+        case (qstate)
+        2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write) ? 2'd0 : 2'd1;
+        2'd1:       qstate_next = 2'd2;
+        2'd2:       qstate_next = mem_exc || data_addr_ok ? 2'd0 : 2'd2;
+        default:    qstate_next = 2'd0;
+        endcase
+    end
+    
+    // ea is saved for tlb lookup
+    reg [31:0] ea_aligned_save;
+    always @(posedge clk) if (qstate_next == 2'd1) ea_aligned_save <= mem_addr_aligned;
+    
+    assign tlb_vaddr = ea_aligned_save;
+    
+    always @(posedge clk) begin
+        if (!resetn) tlbc_valid <= 1'b0;
+        else if (tlbwi || tlbwr) tlbc_valid <= 1'b0;
+        else if (qstate == 2'd1) tlbc_valid <= 1'b1;
+    end
+    
+    always @(posedge clk) begin
+        if (qstate == 2'd1) begin
+            tlbc_vaddr_hi <= ea_aligned_save[31:12];
+            tlbc_paddr_hi <= tlb_paddr[31:12];
+            tlbc_miss <= tlb_miss;
+            tlbc_invalid <= tlb_invalid;
+            tlbc_dirty <= tlb_dirty;
+        end
+    end
+    
+    wire req_state = qstate == 2'd0 && (kseg01 || tlbc_hit)
+                  || qstate == 2'd2;
+    
+    assign data_req = valid && (mem_read || mem_write) && !mem_exc && req_state;
     assign data_wr = mem_write;
     
     // mem write mask
@@ -185,17 +268,19 @@ module execute_stage(
         {32{ctrl_i[`I_SWL]}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
         {32{ctrl_i[`I_SWR]}} & (rdata2_i << (8 * mem_byte_offset));
     
-    assign data_addr = mem_addr_aligned;
+    assign data_addr = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, mem_addr_aligned[11:0]} : mem_addr_aligned)
+                     : {tlbc_paddr_hi, ea_aligned_save[11:0]};
     
     assign data_size =
         {3{ctrl_i[`I_SW]||ctrl_i[`I_SWL]||ctrl_i[`I_SWR]||ctrl_i[`I_LW]||ctrl_i[`I_LWL]||ctrl_i[`I_LWR]}} & 3'd2 |
         {3{ctrl_i[`I_SH]||ctrl_i[`I_LH]||ctrl_i[`I_LHU]}} & 3'd1 |
         {3{ctrl_i[`I_SB]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 3'd0;
 
-    assign done_o   = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
+    wire done_nonmem = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
+                    || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+    assign done_o   = done_nonmem
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
-                   || (mem_adel || mem_ades)
-                   || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+                   || valid_i && mem_exc;
 
     always @(posedge clk) begin
         if (!resetn) done <= 1'b0;
@@ -204,15 +289,22 @@ module execute_stage(
     end
 
     // exceptions
-    wire exc = alu_of_exc || (mem_adel || mem_ades);
+    wire exc = alu_of_exc || mem_adel || mem_ades
+            || valid_i && (tlbl || tlbs || tlbm);
+
     wire [4:0] exccode = {5{alu_of_exc}} & `EXC_OV
                        | {5{mem_adel}} & `EXC_ADEL
-                       | {5{mem_ades}} & `EXC_ADES;
+                       | {5{mem_ades}} & `EXC_ADES
+                       | {5{tlbl}} & `EXC_TLBL
+                       | {5{tlbs}} & `EXC_TLBS
+                       | {5{tlbm}} & `EXC_MOD;
     assign commit = valid && exc || valid_i && exc_i;
+    assign commit_miss = valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
+                      || valid_i && exc_i && exc_miss_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = bd_i;
     assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
-    assign commit_bvaddr = (mem_adel || mem_ades) ? eff_addr : pc_i;
+    assign commit_bvaddr = exc_i ? pc_i : eaddr_i;
     assign commit_eret = eret_i;
 
     assign fwd_addr = {5{valid_i}} & waddr_i;
@@ -222,7 +314,8 @@ module execute_stage(
                     | {32{ctrl_i[`I_LINK]}} & (pc_i + 32'd8)
                     | {32{ctrl_i[`I_MFC0]}} & cp0_rdata
                     | {32{!(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_LUI]||ctrl_i[`I_LINK]||ctrl_i[`I_MFC0])}} & alu_res_wire;
-    assign fwd_ok   = valid && done_o && ctrl_i[`I_WEX];
+
+    assign fwd_ok   = valid && done_nonmem && ready_i && ctrl_i[`I_WEX];
 
     always @(posedge clk) begin
         if (!resetn) begin
@@ -242,7 +335,7 @@ module execute_stage(
             ctrl_o      <= ctrl_i;
             waddr_o     <= waddr_i;
             result_o    <= fwd_data;
-            eaddr_o     <= eff_addr;
+            eaddr_o     <= eaddr_i;
             rdata2_o    <= rdata2_i;
         end
     end

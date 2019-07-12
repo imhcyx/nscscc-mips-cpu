@@ -13,6 +13,16 @@ module cp0regs(
     output  [31:0]      mfc0_data,
     input   [7 :0]      addr, // rd, sel
     
+    // tlb read/write
+    input               tlbr,
+    input   [31:0]      tlbr_lo0,
+    input   [31:0]      tlbr_lo1,
+    input   [31:0]      tlbr_hi,
+    input   [11:0]      tlbr_mask,
+    input               tlbwr,
+    input               tlbp,
+    input   [31:0]      tlbp_index,
+    
     // exception commit
     input               commit_exc, // also valid when commit_eret is valid
     input   [4 :0]      commit_code,
@@ -21,6 +31,12 @@ module cp0regs(
     input   [31:0]      commit_bvaddr,
     input               commit_eret,
     
+    output  [31:0]      index,
+    output  [31:0]      random,
+    output  [31:0]      entrylo0,
+    output  [31:0]      entrylo1,
+    output reg [11:0]   mask, // mask field in PageMask
+    output  [31:0]      entryhi,
     output  [31:0]      status,
     output  [31:0]      cause,
     output reg [31:0]   epc
@@ -34,11 +50,126 @@ module cp0regs(
 
     // this indicates an exception is to commit, distinguished from an ERET instruction
     wire exception_commit = commit_exc && !commit_eret;
+    wire exception_mem = commit_code == `EXC_MOD
+                      || commit_code == `EXC_TLBL
+                      || commit_code == `EXC_TLBS
+                      || commit_code == `EXC_ADEL
+                      || commit_code == `EXC_ADES;
+    
+    // Index (0, 0)
+    reg index_p;
+    reg [`TLB_IDXBITS-1:0] index_index;
+    assign index = (index_p << 31) | index_index;
+    
+    wire index_write = mtc0 && addr == `CP0_INDEX;
+    always @(posedge clk) begin
+        // P
+        if (!resetn) index_p <= 1'b0;
+        if (tlbp) index_p <= tlbp_index[`INDEX_P];
+        // Index
+        if (tlbp) index_index <= tlbp_index[`INDEX_INDEX];
+        else if (index_write) index_index <= mtc0_data[`INDEX_INDEX];
+    end
+    
+    // Wired (6, 0)
+    reg [`TLB_IDXBITS-1:0] wired_wired;
+    wire [31:0] wired = wired_wired;
+    
+    wire wired_write = mtc0 && addr == `CP0_WIRED;
+    always @(posedge clk) begin
+        // Wired
+        if (!resetn) wired_wired <= 0;
+        else if (wired_write) wired_wired <= mtc0_data[`WIRED_WIRED];
+    end
+    
+    // Random (0, 0)
+    reg [`TLB_IDXBITS-1:0] random_random;
+    assign random = random_random;
+    
+    wire [`TLB_IDXBITS-1:0] next_random = random_random + 1'b1;
+    always @(posedge clk) begin
+        // Random
+        if (!resetn || wired_write) random_random <= `TLB_ENTRIES - 1;
+        else if (tlbwr) random_random <= next_random < wired_wired ? wired_wired : next_random;
+    end
+    
+    // EntryLo0, EntryLo1 (2 and 3, 0)
+    
+    reg [19:0] entrylo0_pfn, entrylo1_pfn;
+    reg [2:0] entrylo0_c, entrylo1_c;
+    reg entrylo0_d, entrylo1_d;
+    reg entrylo0_v, entrylo1_v;
+    reg entrylo0_g, entrylo1_g;
+    assign entrylo0 = {
+        6'd0,
+        entrylo0_pfn, // 25:6
+        entrylo0_c, // 5:3
+        entrylo0_d, // 2
+        entrylo0_v, // 1
+        entrylo0_g // 0
+    };
+    assign entrylo1 = {
+        6'd0,
+        entrylo1_pfn, // 25:6
+        entrylo1_c, // 5:3
+        entrylo1_d, // 2
+        entrylo1_v, // 1
+        entrylo1_g // 0
+    };
+    
+    wire entrylo0_write = mtc0 && addr == `CP0_ENTRYLO0;
+    wire entrylo1_write = mtc0 && addr == `CP0_ENTRYLO1;
+    
+    always @(posedge clk) begin
+        // EntryLo0
+        if (tlbr) begin
+            entrylo0_pfn <= tlbr_lo0[`ENTRYLO_PFN];
+            entrylo0_c <= tlbr_lo0[`ENTRYLO_C];
+            entrylo0_d <= tlbr_lo0[`ENTRYLO_D];
+            entrylo0_v <= tlbr_lo0[`ENTRYLO_V];
+            entrylo0_g <= tlbr_lo0[`ENTRYLO_G];
+        end
+        else if (entrylo0_write) begin
+            entrylo0_pfn <= mtc0_data[`ENTRYLO_PFN];
+            entrylo0_c <= mtc0_data[`ENTRYLO_C];
+            entrylo0_d <= mtc0_data[`ENTRYLO_D];
+            entrylo0_v <= mtc0_data[`ENTRYLO_V];
+            entrylo0_g <= mtc0_data[`ENTRYLO_G];
+        end
+        // EntryLo1
+        if (tlbr) begin
+            entrylo1_pfn <= tlbr_lo1[`ENTRYLO_PFN];
+            entrylo1_c <= tlbr_lo1[`ENTRYLO_C];
+            entrylo1_d <= tlbr_lo1[`ENTRYLO_D];
+            entrylo1_v <= tlbr_lo1[`ENTRYLO_V];
+            entrylo1_g <= tlbr_lo1[`ENTRYLO_G];
+        end
+        else if (entrylo1_write) begin
+            entrylo1_pfn <= mtc0_data[`ENTRYLO_PFN];
+            entrylo1_c <= mtc0_data[`ENTRYLO_C];
+            entrylo1_d <= mtc0_data[`ENTRYLO_D];
+            entrylo1_v <= mtc0_data[`ENTRYLO_V];
+            entrylo1_g <= mtc0_data[`ENTRYLO_G];
+        end
+    end
+    
+    // PageMask (5, 0)
+    wire [31:0] pagemask = {
+        8'd0,
+        mask, // 24:13
+        13'd0
+    };
+    
+    wire pagemask_write = mtc0 && addr == `CP0_PAGEMASK;
+    always @(posedge clk) begin
+        if (tlbr) mask <= tlbr_mask;
+        else if (pagemask_write) mask <= mtc0_data[`PAGEMASK_MASK];
+    end
     
     // BadVAddr (8, 0)
     reg [31:0] badvaddr;
     always @(posedge clk) begin
-        if (exception_commit) badvaddr <= commit_bvaddr;
+        if (exception_commit && exception_mem) badvaddr <= commit_bvaddr;
     end
     
     // Count (9, 0)
@@ -52,6 +183,27 @@ module cp0regs(
         // Count
         if (count_write) count <= mtc0_data;
         else if (tick) count <= count + 32'd1;
+    end
+    
+    // EntryHi (10, 0)
+    reg [18:0] entryhi_vpn2;
+    reg [7:0] entryhi_asid;
+    assign entryhi = {
+        entryhi_vpn2, // 31:13
+        5'd0,
+        entryhi_asid // 7:0
+    };
+    
+    wire entryhi_write = mtc0 && addr == `CP0_ENTRYHI;
+    always @(posedge clk) begin
+        // VPN2
+        if (exception_commit && exception_mem) entryhi_vpn2 <= commit_bvaddr[`ENTRYHI_VPN2];
+        else if (tlbr) entryhi_vpn2 <= tlbr_hi[`ENTRYHI_VPN2];
+        else if (entryhi_write) entryhi_vpn2 <= mtc0_data[`ENTRYHI_VPN2];
+        // ASID
+        if (!resetn) entryhi_asid <= 0;
+        if (tlbr) entryhi_asid <= tlbr_hi[`ENTRYHI_ASID];
+        else if (entryhi_write) entryhi_asid <= mtc0_data[`ENTRYHI_ASID];
     end
     
     // Compare (11, 0)
@@ -173,7 +325,16 @@ module cp0regs(
     assign int_sig = {cause_ip7_2, cause_ip1_0} & status_im && !status_erl && !status_exl && status_ie;
     
     assign mfc0_data =
+        {32{addr == `CP0_INDEX}}    & index |
+        {32{addr == `CP0_RANDOM}}   & random |
+        {32{addr == `CP0_ENTRYLO0}} & entrylo0 |
+        {32{addr == `CP0_ENTRYLO1}} & entrylo1 |
+        {32{addr == `CP0_PAGEMASK}} & pagemask |
+        {32{addr == `CP0_WIRED}}    & wired |
         {32{addr == `CP0_BADVADDR}} & badvaddr |
+        {32{addr == `CP0_COUNT}}    & count |
+        {32{addr == `CP0_ENTRYHI}}  & entryhi |
+        {32{addr == `CP0_COMPARE}}  & compare |
         {32{addr == `CP0_STATUS}}   & status |
         {32{addr == `CP0_CAUSE}}    & cause |
         {32{addr == `CP0_EPC}}      & epc;
