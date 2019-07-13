@@ -170,4 +170,13 @@
 `define I_MD_SIGN   47
 `define I_EXC_OF    48
 
-`define I_MAX       49
+`define I_BNE       49
+`define I_BEQ       50
+`define I_BGEZ      51
+`define I_BLEZ      52
+`define I_BGTZ      53
+`define I_BLTZ      54
+`define I_J         55
+`define I_JR        56
+
+`define I_MAX       57

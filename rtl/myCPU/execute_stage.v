@@ -13,6 +13,11 @@ module execute_stage(
     output  [31:0]              data_wdata,
     input                       data_addr_ok,
     
+    // branch/jump signals
+    output                      branch,
+    input                       branch_ready,
+    output  [31:0]              target_pc,
+    
     // tlb
     output  [31:0]              tlb_vaddr,
     input   [31:0]              tlb_paddr,
@@ -162,6 +167,24 @@ module execute_stage(
             if (valid && ctrl_i[`I_MTLO]) lo <= rdata1_i;
         end
     end
+    
+    // branch test
+    wire branch_taken   = (ctrl_i[`I_BNE] && (rdata1_i != rdata2_i))
+                       || (ctrl_i[`I_BEQ] && (rdata1_i == rdata2_i))
+                       || (ctrl_i[`I_BGEZ] && !rdata1_i[31])
+                       || (ctrl_i[`I_BLEZ] && (rdata1_i[31] || rdata1_i == 32'd0))
+                       || (ctrl_i[`I_BGTZ] && !(rdata1_i[31] || rdata1_i == 32'd0))
+                       || (ctrl_i[`I_BLTZ] && rdata1_i[31]);
+
+    assign branch       = valid && (ctrl_i[`I_J]||ctrl_i[`I_JR]||branch_taken); // && done_o
+
+    wire [31:0] seq_pc = pc_i + 32'd4;
+    wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
+    wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
+
+    assign target_pc    = {32{!(ctrl_i[`I_J]||ctrl_i[`I_JR])}} & pc_branch
+                        | {32{ctrl_i[`I_JR]}} & rdata1_i
+                        | {32{ctrl_i[`I_J]}} & pc_jump;
     
     // mtc0/mfc0
     assign cp0_w = valid && ctrl_i[`I_MTC0];
@@ -329,7 +352,7 @@ module execute_stage(
             rdata2_o    <= 32'd0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done_o && ready_i && !exc_i && !exc;
+            valid_o     <= valid_i && done_o && !exc_i && !exc;
             pc_o        <= pc_i;
             inst_o      <= inst_i;
             ctrl_o      <= ctrl_i;

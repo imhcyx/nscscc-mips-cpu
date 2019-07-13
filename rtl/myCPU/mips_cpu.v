@@ -125,14 +125,13 @@ module mips_cpu(
     wire if_ready;
     wire [31:0] if_pc;
     wire if_id_valid, id_if_ready;
-    wire [31:0] if_id_pc, if_id_inst;
-    wire if_id_exc, if_id_exc_miss;
+    wire [31:0] if_id_pc;
+    wire if_id_cancelled, if_id_exc, if_id_exc_miss;
     wire [4:0] if_id_exccode;
     
     wire id_cancel;
     
-    wire if_wait_data;
-    wire branch, branch_ack;
+    wire branch;
     wire [31:0] branch_pc;
     
     wire [31:0] vector =    commit_eret ? cp0_epc :
@@ -156,31 +155,27 @@ module mips_cpu(
     end
     
     assign if_valid = if_valid_r && !id_cancel && !commit;
-    assign branch_ack = if_wait_data;
     
-    assign if_pc = branch && branch_ack ? branch_pc : pc;
+    assign if_pc = branch ? branch_pc : pc;
     
     fetch_stage fetch(
         .clk            (clk),
         .resetn         (resetn),
         .inst_req       (inst_req),
         .inst_addr      (inst_addr),
-        .inst_rdata     (inst_rdata),
         .inst_addr_ok   (inst_addr_ok),
-        .inst_data_ok   (inst_data_ok),
         .tlb_write      (tlbwi||tlbwr),
         .tlb_vaddr      (inst_vaddr),
         .tlb_paddr      (inst_paddr),
         .tlb_miss       (inst_miss),
         .tlb_invalid    (inst_invalid),
-        .wait_data      (if_wait_data),
         .ready_o        (if_ready),
         .valid_i        (if_valid),
         .pc_i           (if_pc),
         .ready_i        (id_if_ready),
         .valid_o        (if_id_valid),
         .pc_o           (if_id_pc),
-        .inst_o         (if_id_inst),
+        .cancelled_o    (if_id_cancelled),
         .exc_o          (if_id_exc),
         .exc_miss_o     (if_id_exc_miss),
         .exccode_o      (if_id_exccode),
@@ -219,13 +214,12 @@ module mips_cpu(
     decode_stage decode(
         .clk            (clk),
         .resetn         (resetn),
+        .inst_rdata     (inst_rdata),
+        .inst_data_ok   (inst_data_ok),
         .rf_raddr1      (rf_raddr1),
         .rf_raddr2      (rf_raddr2),
         .rf_rdata1      (rf_rdata1),
         .rf_rdata2      (rf_rdata2),
-        .branch         (branch),
-        .branch_ack     (branch_ack),
-        .branch_pc      (branch_pc),
         .int_sig        (int_sig),
         .ex_fwd_addr    (ex_fwd_addr),
         .ex_fwd_data    (ex_fwd_data),
@@ -236,7 +230,7 @@ module mips_cpu(
         .done_o         (id_done),
         .valid_i        (if_id_valid),
         .pc_i           (if_id_pc),
-        .inst_i         (if_id_inst),
+        .cancelled_i    (if_id_cancelled),
         .ready_i        (ex_id_ready),
         .valid_o        (id_ex_valid),
         .pc_o           (id_ex_pc),
@@ -276,6 +270,9 @@ module mips_cpu(
         .data_size      (data_size),
         .data_wdata     (data_wdata),
         .data_addr_ok   (data_addr_ok),
+        .branch         (branch),
+        .branch_ready   (if_id_valid),
+        .target_pc      (branch_pc),
         .tlb_vaddr      (data_vaddr),
         .tlb_paddr      (data_paddr),
         .tlb_miss       (data_miss),
