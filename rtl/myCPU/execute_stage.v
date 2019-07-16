@@ -300,7 +300,9 @@ module execute_stage(
         {3{ctrl_i[`I_SB]||ctrl_i[`I_LB]||ctrl_i[`I_LBU]}} & 3'd0;
 
     wire done_nonmem = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
-                    || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]));
+                    ||  (ctrl_i[`I_J]||ctrl_i[`I_JR]||branch_taken) && branch_ready
+                    || !(ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]||
+                         ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]||(ctrl_i[`I_J]||ctrl_i[`I_JR]||branch_taken)));
     assign done_o   = done_nonmem
                    || (ctrl_i[`I_MEM_R]||ctrl_i[`I_MEM_W]) && (data_addr_ok)
                    || valid_i && mem_exc;
