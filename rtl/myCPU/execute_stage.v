@@ -176,7 +176,7 @@ module execute_stage(
                        || (ctrl_i[`I_BGTZ] && !(rdata1_i[31] || rdata1_i == 32'd0))
                        || (ctrl_i[`I_BLTZ] && rdata1_i[31]);
 
-    assign branch       = valid && (ctrl_i[`I_J]||ctrl_i[`I_JR]||branch_taken); // && done_o
+    assign branch       = valid && branch_ready && (ctrl_i[`I_J]||ctrl_i[`I_JR]||branch_taken); // && done_o
 
     wire [31:0] seq_pc = pc_i + 32'd4;
     wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
