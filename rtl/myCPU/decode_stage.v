@@ -85,14 +85,14 @@ module decode_stage(
     wire [31:0] inst = inst_saved ? inst_save : inst_rdata;
     wire inst_ok = inst_data_ok || inst_saved;
     
-    reg cancelled;
+    reg cancel_save;
     always @(posedge clk) begin
-        if (!resetn) cancelled <= 1'b0;
-        else if (done_o && ready_i) cancelled <= 1'b0;
-        else if (cancel_i && valid_i) cancelled <= 1'b1;
+        if (!resetn) cancel_save <= 1'b0;
+        else if (done_o && ready_i) cancel_save <= 1'b0;
+        else if (cancel_i && valid_i) cancel_save <= 1'b1;
     end
     
-    assign valid = valid_i && !cancelled_i && inst_ok && !done && !cancelled;
+    assign valid = valid_i && !cancelled_i && inst_ok && !done && !cancel_save;
     
     wire [`I_MAX-1:0] ctrl_sig;
 
@@ -311,7 +311,7 @@ module decode_stage(
                        | {5{reserved}} & `EXC_RI
                        | {5{int_sig}} & `EXC_INT;
     
-    assign cancel_o = valid_i && !exc_i && exc && !cancelled && !cancel_i;
+    assign cancel_o = valid_i && !exc_i && exc && !cancel_save && !cancel_i && !cancelled_i;
     
     assign done_o = inst_ok && (!fwd_stall || cancelled_i) || exc_i || exc;
     
@@ -334,7 +334,7 @@ module decode_stage(
             eret_o      <= 1'b0;
         end
         else if (ready_i) begin
-            valid_o     <= valid_i && done_o && !cancelled_i && !cancel_i && !cancelled;
+            valid_o     <= valid_i && done_o && !cancelled_i && !cancel_i && !cancel_save;
             pc_o        <= pc_i;
             inst_o      <= inst;
             ctrl_o      <= ctrl_sig;
@@ -344,7 +344,7 @@ module decode_stage(
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst)
                          | {5{inst_r31_wex}}                & 5'd31;
-            exc_o       <= exc_i || valid_i && exc && !cancelled && !cancel_i;
+            exc_o       <= exc_i || valid_i && exc && !cancel_save && !cancel_i && !cancelled_i;
             exc_miss_o  <= exc_miss_i;
             exccode_o   <= valid_i && exc_i ? exccode_i : exccode;
             bd_o        <= prev_branch;
