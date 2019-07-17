@@ -28,7 +28,8 @@ module fetch_stage(
     output reg          exc_o,
     output reg          exc_miss_o,
     output reg [4:0]    exccode_o,
-    input               cancel_i
+    input               cancel_i,
+    input               commit_i
 );
     
     // tlb query fsm (0=check/bypass, 1=query, 2=request)
@@ -102,7 +103,7 @@ module fetch_stage(
     reg cancel_save;
     always @(posedge clk) begin
         if (!resetn) cancel_save <= 1'b0;
-        else if (ready_i) cancel_save <= 1'b0;
+        else if (ready_i || commit_i) cancel_save <= 1'b0;
         else if (cancel_i && valid_i) cancel_save <= 1'b1;
     end
     

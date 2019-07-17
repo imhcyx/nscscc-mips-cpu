@@ -179,7 +179,8 @@ module mips_cpu(
         .exc_o          (if_id_exc),
         .exc_miss_o     (if_id_exc_miss),
         .exccode_o      (if_id_exccode),
-        .cancel_i       (id_cancel||commit)
+        .cancel_i       (id_cancel||commit),
+        .commit_i       (commit)
     );
     
     //////////////////// ID ////////////////////
