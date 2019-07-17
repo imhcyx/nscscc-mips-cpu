@@ -154,7 +154,7 @@ module mips_cpu(
         else if (id_cancel) if_valid_r <= 1'b0;
     end
     
-    assign if_valid = if_valid_r && !id_cancel && !commit;
+    assign if_valid = if_valid_r; // && !id_cancel && !commit;
     
     assign if_pc = branch ? branch_pc : pc;
     

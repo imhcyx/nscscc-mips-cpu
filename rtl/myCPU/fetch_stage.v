@@ -22,7 +22,7 @@ module fetch_stage(
     input               ready_i,
     output reg          valid_o,
     output reg [31:0]   pc_o,
-    output reg          cancelled_o,
+    output              cancelled_o,
     
     // exception interface
     output reg          exc_o,
@@ -102,16 +102,17 @@ module fetch_stage(
     reg cancel_save;
     always @(posedge clk) begin
         if (!resetn) cancel_save <= 1'b0;
-        else if (ready_i) cancel_save <= 1'b0;
+        else if (ready_i) cancel_save <= cancel_i;
         else if (cancel_i && valid_i) cancel_save <= 1'b1;
     end
+    
+    assign cancelled_o = cancel_save;
     
     // Note: exception in IF_req must be passwd to ID after the instruction in IF_wait has been passed to ID
     always @(posedge clk) begin
         if (!resetn) begin
             valid_o     <= 1'b0;
             pc_o        <= 32'd0;
-            cancelled_o <= 1'b0;
             exc_o       <= 1'b0;
             exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
@@ -119,7 +120,6 @@ module fetch_stage(
         else if (ready_i) begin
             valid_o     <= valid_i && inst_addr_ok || if_req_exc;
             pc_o        <= qstate == 2'd0 ? pc_i : pc_save;
-            cancelled_o <= cancel_i || cancel_save;
             exc_o       <= if_req_exc;
             exc_miss_o  <= (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss;
             exccode_o   <= if_adel ? `EXC_ADEL : `EXC_TLBL;
