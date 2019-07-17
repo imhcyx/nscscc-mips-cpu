@@ -291,8 +291,6 @@ module decode_stage(
                    || fwd_wb_raddr1_hit && !wb_fwd_ok
                    || fwd_wb_raddr2_hit && !wb_fwd_ok;
 
-    assign done_o = inst_ok && (!fwd_stall || cancelled_i) || valid_i && exc_i;
-
     always @(posedge clk) begin
         if (!resetn) done <= 1'b0;
         else if (ready_i) done <= 1'b0;
@@ -314,6 +312,8 @@ module decode_stage(
                        | {5{int_sig}} & `EXC_INT;
     
     assign cancel_o = valid_i && !exc_i && exc && !cancelled && !cancel_i;
+    
+    assign done_o = inst_ok && (!fwd_stall || cancelled_i) || exc_i || exc;
     
     wire [15:0] imm = `GET_IMM(inst);
 

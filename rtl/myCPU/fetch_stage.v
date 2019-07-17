@@ -94,7 +94,7 @@ module fetch_stage(
     assign inst_addr    = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, pc_i[11:0]} : pc_i)
                         : {tlbc_paddr_hi, pc_save[11:0]};
     
-    assign ready_o      = ok_to_req && (qstate_next == 2'd1 || qstate == 2'd0 && inst_addr_ok);
+    assign ready_o      = ready_i && (inst_addr_ok || if_req_exc);
     
     // cancel_save saves the cancel_i to indicate an instruction is cancelled
     // we have to wait for the response even though an instruction is cancelled since the bus does not support cancellation
