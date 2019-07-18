@@ -241,7 +241,6 @@ module cp0regs(
     reg status_bev;
     reg [7:0] status_im;
     reg status_um;
-    reg status_erl;
     reg status_exl;
     reg status_ie;
     assign status = {
@@ -254,7 +253,7 @@ module cp0regs(
         3'd0,
         status_um,  // 4
         1'b0,
-        status_erl, // 2
+        1'b0, // 2
         status_exl, // 1
         status_ie   // 0
     };
@@ -273,10 +272,6 @@ module cp0regs(
         // UM
         if (!resetn) status_um <= 1'b0;
         else if (status_write) status_um <= mtc0_data[`STATUS_UM];
-        // ERL
-        // Note: MIPS specifies 1 as the reset value of ERL while NSCSCC specifies 0
-        if (!resetn) status_erl <= 1'b0;
-        else if (status_write) status_erl <= mtc0_data[`STATUS_ERL];
         // EXL
         if (!resetn) status_exl <= 1'b1;
         else if (commit_exc) status_exl <= !commit_eret;
@@ -312,7 +307,7 @@ module cp0regs(
     always @(posedge clk) begin
         // BD
         if (!resetn) cause_bd <= 1'b0;
-        else if (exception_commit) cause_bd <= commit_bd;
+        else if (exception_commit && !status_exl) cause_bd <= commit_bd;
         // TI
         if (!resetn) cause_ti <= 1'b0;
         else cause_ti <= timer_int;
@@ -334,7 +329,7 @@ module cp0regs(
     wire epc_write = mtc0 && addr == `CP0_EPC;
     always @(posedge clk) begin
         if (epc_write) epc <= mtc0_data;
-        else if (exception_commit) epc <= commit_epc;
+        else if (exception_commit && !status_exl) epc <= commit_epc;
     end
     
     // PRId (15, 0)
@@ -409,7 +404,7 @@ module cp0regs(
         else if (count == compare) timer_int <= 1'b1;
     end
     
-    assign int_sig = {cause_ip7_2, cause_ip1_0} & status_im && !status_erl && !status_exl && status_ie;
+    assign int_sig = {cause_ip7_2, cause_ip1_0} & status_im && !status_exl && status_ie;
     
     assign mfc0_data =
         {32{addr == `CP0_INDEX      }} & index      |

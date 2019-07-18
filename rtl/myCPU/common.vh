@@ -59,7 +59,6 @@
 `define STATUS_BEV          22
 `define STATUS_IM           15:8
 `define STATUS_UM           4
-`define STATUS_ERL          2
 `define STATUS_EXL          1
 `define STATUS_IE           0
 
