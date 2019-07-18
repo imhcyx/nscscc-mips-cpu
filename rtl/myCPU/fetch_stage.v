@@ -6,6 +6,7 @@ module fetch_stage(
     
     // memory access interface
     output              inst_req,
+    output              inst_cache,
     output  [31:0]      inst_addr,
     input               inst_addr_ok,
     
@@ -15,6 +16,9 @@ module fetch_stage(
     input   [31:0]      tlb_paddr,
     input               tlb_miss,
     input               tlb_invalid,
+    input   [2:0]       tlb_cattr,
+    
+    input   [2:0]       config_k0,
     
     output              ready_o,
     input               valid_i,
@@ -39,9 +43,11 @@ module fetch_stage(
     reg tlbc_valid; // indicates query cache validity
     reg [19:0] tlbc_vaddr_hi, tlbc_paddr_hi;
     reg tlbc_miss, tlbc_invalid;
+    reg [2:0] tlbc_cattr;
     
     wire if_adel = pc_i[1:0] != 2'd0;
     wire kseg01 = pc_i[31:30] == 2'b10;
+    wire kseg0 = pc_i[31:29] == 3'b100;
     wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == pc_i[31:12];
     
     always @(posedge clk) begin
@@ -79,6 +85,7 @@ module fetch_stage(
             tlbc_paddr_hi <= tlb_paddr[31:12];
             tlbc_miss <= tlb_miss;
             tlbc_invalid <= tlb_invalid;
+            tlbc_cattr <= tlb_cattr;
         end
     end
     
@@ -92,8 +99,9 @@ module fetch_stage(
                   || qstate == 2'd2;
     
     assign inst_req     = valid_i && ok_to_req && !if_req_exc && req_state;
-    assign inst_addr    = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, pc_i[11:0]} : pc_i)
+    assign inst_addr    = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, pc_i[11:0]} : {3'd0, pc_i[28:0]})
                         : {tlbc_paddr_hi, pc_save[11:0]};
+    assign inst_cache   = qstate == 2'd0 ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
     
     assign ready_o      = ready_i && (inst_addr_ok || if_req_exc);
     

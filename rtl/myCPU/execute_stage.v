@@ -6,6 +6,7 @@ module execute_stage(
 
     // memory access interface
     output                      data_req,
+    output                      data_cache,
     output                      data_wr,
     output  [3 :0]              data_wstrb,
     output  [31:0]              data_addr,
@@ -24,6 +25,9 @@ module execute_stage(
     input                       tlb_miss,
     input                       tlb_invalid,
     input                       tlb_dirty,
+    input   [2 :0]              tlb_cattr,
+    
+    input   [2: 0]              config_k0,
 
     // data forwarding
     output  [4 :0]              fwd_addr,
@@ -206,9 +210,10 @@ module execute_stage(
     reg tlbc_valid; // indicates query cache validity
     reg [19:0] tlbc_vaddr_hi, tlbc_paddr_hi;
     reg tlbc_miss, tlbc_invalid, tlbc_dirty;
+    reg [2:0] tlbc_cattr;
     
     //wire [31:0] eff_addr = rdata1_i + imm_sx;
-    wire [31:0] mem_addr_aligned = eaddr_i & 32'hfffffffc;
+    wire [31:0] ea_aligned = eaddr_i & 32'hfffffffc;
     wire [1:0] mem_byte_offset = eaddr_i[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
@@ -221,8 +226,9 @@ module execute_stage(
     wire mem_write = ctrl_i[`I_MEM_W] && !mem_ades;
     
     
-    wire kseg01 = mem_addr_aligned[31:30] == 2'b10;
-    wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == mem_addr_aligned[31:12];
+    wire kseg01 = ea_aligned[31:30] == 2'b10;
+    wire kseg0 = ea_aligned[31:29] == 3'b100;
+    wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == ea_aligned[31:12];
     
     wire tlbc_ok = qstate == 2'd0 && tlbc_hit
                 || qstate == 2'd2;
@@ -249,7 +255,7 @@ module execute_stage(
     
     // ea is saved for tlb lookup
     reg [31:0] ea_aligned_save;
-    always @(posedge clk) if (qstate_next == 2'd1) ea_aligned_save <= mem_addr_aligned;
+    always @(posedge clk) if (qstate_next == 2'd1) ea_aligned_save <= ea_aligned;
     
     assign tlb_vaddr = ea_aligned_save;
     
@@ -266,6 +272,7 @@ module execute_stage(
             tlbc_miss <= tlb_miss;
             tlbc_invalid <= tlb_invalid;
             tlbc_dirty <= tlb_dirty;
+            tlbc_cattr <= tlb_cattr;
         end
     end
     
@@ -273,6 +280,7 @@ module execute_stage(
                   || qstate == 2'd2;
     
     assign data_req = valid && (mem_read || mem_write) && !mem_exc && req_state;
+    assign data_cache = qstate == 2'd0 ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
     assign data_wr = mem_write;
     
     // mem write mask
@@ -291,7 +299,7 @@ module execute_stage(
         {32{ctrl_i[`I_SWL]}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
         {32{ctrl_i[`I_SWR]}} & (rdata2_i << (8 * mem_byte_offset));
     
-    assign data_addr = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, mem_addr_aligned[11:0]} : mem_addr_aligned)
+    assign data_addr = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, ea_aligned[11:0]} : {3'd0, ea_aligned[28:0]})
                      : {tlbc_paddr_hi, ea_aligned_save[11:0]};
     
     assign data_size =

@@ -9,11 +9,13 @@ module mips_cpu(
     input   [5 :0]      int,
 
     output              inst_req,
+    output              inst_cache,
     output  [31:0]      inst_addr,
     input   [31:0]      inst_rdata,
     input               inst_addr_ok,
     input               inst_data_ok,
     output              data_req,
+    output              data_cache,
     output              data_wr,
     output  [3 :0]      data_wstrb,
     output  [31:0]      data_addr,
@@ -43,6 +45,7 @@ module mips_cpu(
     wire [31:0] cp0_index, cp0_random, cp0_entrylo0, cp0_entrylo1, cp0_entryhi;
     wire [11:0] cp0_mask;
     wire [31:0] cp0_status, cp0_cause, cp0_epc, cp0_ebase;
+    wire [2:0] config_k0;
     
     wire tlbr, tlbwi, tlbwr, tlbp;
     wire [31:0] tlbr_lo0, tlbr_lo1, tlbr_hi, tlbp_index;
@@ -80,13 +83,14 @@ module mips_cpu(
         .status         (cp0_status),
         .cause          (cp0_cause),
         .epc            (cp0_epc),
-        .ebase          (cp0_ebase)
+        .ebase          (cp0_ebase),
+        .config_k0      (config_k0)
     );
     
     // Address Translation
     wire [31:0] inst_vaddr, data_vaddr;
     wire [31:0] inst_paddr, data_paddr;
-    wire [2:0] inst_cache, data_cache;
+    wire [2:0] inst_cattr, data_cattr;
     wire inst_miss, data_miss;
     wire inst_invalid, data_invalid;
     wire data_dirty;
@@ -109,12 +113,12 @@ module mips_cpu(
         .probe_index    (tlbp_index),
         .inst_vaddr     (inst_vaddr),
         .inst_paddr     (inst_paddr),
-        .inst_cache     (inst_cache),
+        .inst_cache     (inst_cattr),
         .inst_miss      (inst_miss),
         .inst_invalid   (inst_invalid),
         .data_vaddr     (data_vaddr),
         .data_paddr     (data_paddr),
-        .data_cache     (data_cache),
+        .data_cache     (data_cattr),
         .data_miss      (data_miss),
         .data_invalid   (data_invalid),
         .data_dirty     (data_dirty)
@@ -163,6 +167,7 @@ module mips_cpu(
         .clk            (clk),
         .resetn         (resetn),
         .inst_req       (inst_req),
+        .inst_cache     (inst_cache),
         .inst_addr      (inst_addr),
         .inst_addr_ok   (inst_addr_ok),
         .tlb_write      (tlbwi||tlbwr),
@@ -170,6 +175,8 @@ module mips_cpu(
         .tlb_paddr      (inst_paddr),
         .tlb_miss       (inst_miss),
         .tlb_invalid    (inst_invalid),
+        .tlb_cattr      (inst_cattr),
+        .config_k0      (config_k0),
         .ready_o        (if_ready),
         .valid_i        (if_valid),
         .pc_i           (if_pc),
@@ -266,6 +273,7 @@ module mips_cpu(
         .clk            (clk),
         .resetn         (resetn),
         .data_req       (data_req),
+        .data_cache     (data_cache),
         .data_wr        (data_wr),
         .data_wstrb     (data_wstrb),
         .data_addr      (data_addr),
@@ -280,6 +288,8 @@ module mips_cpu(
         .tlb_miss       (data_miss),
         .tlb_invalid    (data_invalid),
         .tlb_dirty      (data_dirty),
+        .tlb_cattr      (data_cattr),
+        .config_k0      (config_k0),
         .fwd_addr       (ex_fwd_addr),
         .fwd_data       (ex_fwd_data),
         .fwd_ok         (ex_fwd_ok),
