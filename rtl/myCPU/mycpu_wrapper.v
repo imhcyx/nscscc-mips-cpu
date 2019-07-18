@@ -93,21 +93,18 @@ module mycpu_top(
         .debug_wb_rf_wdata(debug_wb_rf_wdata)
     );
     
-    wire [31:0] inst_phys_addr = {3'd0, cpu_inst_addr[28:0]};
-    wire [31:0] data_phys_addr = {3'd0, cpu_data_addr[28:0]};
-    
     cpu_axi_interface ifc(
         .clk(aclk),
         .resetn(aresetn),
         .inst_req(cpu_inst_req),
-        .inst_addr(inst_phys_addr),
+        .inst_addr(cpu_inst_addr),
         .inst_rdata(cpu_inst_rdata),
         .inst_addr_ok(cpu_inst_addr_ok),
         .inst_data_ok(cpu_inst_data_ok),
         .data_req(cpu_data_req),
         .data_wr(cpu_data_wr),
         .data_wstrb(cpu_data_wstrb),
-        .data_addr(data_phys_addr),
+        .data_addr(cpu_data_addr),
         .data_size(cpu_data_size),
         .data_wdata(cpu_data_wdata),
         .data_rdata(cpu_data_rdata),
