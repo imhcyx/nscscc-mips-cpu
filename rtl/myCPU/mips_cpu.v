@@ -217,7 +217,7 @@ module mips_cpu(
     wire [`I_MAX-1:0] id_ex_ctrl;
     wire [31:0] id_ex_rdata1, id_ex_rdata2, id_ex_eaddr;
     wire [4:0] id_ex_waddr;
-    wire id_ex_exc, id_ex_exc_miss, id_ex_bd, id_ex_eret;
+    wire id_ex_exc, id_ex_exc_miss, id_ex_bd;
     wire [4:0] id_ex_exccode;
     
     decode_stage decode(
@@ -229,7 +229,6 @@ module mips_cpu(
         .rf_raddr2      (rf_raddr2),
         .rf_rdata1      (rf_rdata1),
         .rf_rdata2      (rf_rdata2),
-        .int_sig        (int_sig),
         .ex_fwd_addr    (ex_fwd_addr),
         .ex_fwd_data    (ex_fwd_data),
         .ex_fwd_ok      (ex_fwd_ok),
@@ -256,7 +255,6 @@ module mips_cpu(
         .exc_miss_o     (id_ex_exc_miss),
         .exccode_o      (id_ex_exccode),
         .bd_o           (id_ex_bd),
-        .eret_o         (id_ex_eret),
         .cancel_i       (commit),
         .cancel_o       (id_cancel)
     );
@@ -290,6 +288,7 @@ module mips_cpu(
         .tlb_dirty      (data_dirty),
         .tlb_cattr      (data_cattr),
         .config_k0      (config_k0),
+        .int_sig        (int_sig),
         .fwd_addr       (ex_fwd_addr),
         .fwd_data       (ex_fwd_data),
         .fwd_ok         (ex_fwd_ok),
@@ -323,7 +322,6 @@ module mips_cpu(
         .exc_miss_i     (id_ex_exc_miss),
         .exccode_i      (id_ex_exccode),
         .bd_i           (id_ex_bd),
-        .eret_i         (id_ex_eret),
         .commit         (commit),
         .commit_miss    (commit_miss),
         .commit_code    (commit_code),

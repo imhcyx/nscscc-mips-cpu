@@ -28,7 +28,10 @@ module execute_stage(
     input   [2 :0]              tlb_cattr,
     
     input   [2: 0]              config_k0,
-
+    
+    // interrupt
+    input                       int_sig,
+    
     // data forwarding
     output  [4 :0]              fwd_addr,
     output  [31:0]              fwd_data,
@@ -70,7 +73,6 @@ module execute_stage(
     input                       exc_miss_i,
     input   [4 :0]              exccode_i,
     input                       bd_i,
-    input                       eret_i,
     output                      commit,
     output                      commit_miss,
     output  [4 :0]              commit_code,
@@ -314,10 +316,16 @@ module execute_stage(
     end
 
     // exceptions
-    wire exc = alu_of_exc || mem_adel || mem_ades
+    wire exc = int_sig || ctrl_i[`I_RESERVED]
+            || ctrl_i[`I_SYSCALL] || ctrl_i[`I_BREAK] || ctrl_i[`I_ERET]
+            || alu_of_exc || mem_adel || mem_ades
             || valid_i && (tlbl || tlbs || tlbm);
 
-    wire [4:0] exccode = {5{alu_of_exc}} & `EXC_OV
+    wire [4:0] exccode = {5{int_sig}} & `EXC_INT
+                       | {5{ctrl_i[`I_RESERVED]}} & `EXC_RI
+                       | {5{ctrl_i[`I_SYSCALL]}} & `EXC_SYS
+                       | {5{ctrl_i[`I_BREAK]}} & `EXC_BP
+                       | {5{alu_of_exc}} & `EXC_OV
                        | {5{mem_adel}} & `EXC_ADEL
                        | {5{mem_ades}} & `EXC_ADES
                        | {5{tlbl}} & `EXC_TLBL
@@ -330,7 +338,7 @@ module execute_stage(
     assign commit_bd = bd_i;
     assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
     assign commit_bvaddr = exc_i ? pc_i : eaddr_i;
-    assign commit_eret = eret_i;
+    assign commit_eret = ctrl_i[`I_ERET];
     
     wire done_nonmem = ((ctrl_i[`I_MFHI]||ctrl_i[`I_MFLO]||ctrl_i[`I_MTHI]||ctrl_i[`I_MTLO]) && !muldiv
                     ||  (ctrl_i[`I_J]||ctrl_i[`I_JR]||branch_taken) && branch_ready

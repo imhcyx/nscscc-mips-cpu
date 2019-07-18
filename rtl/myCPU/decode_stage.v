@@ -30,9 +30,6 @@ module decode_stage(
     output  [4 :0]              rf_raddr2,
     input   [31:0]              rf_rdata1,
     input   [31:0]              rf_rdata2,
-    
-    // interrupt
-    input                       int_sig,
 
     // data forwarding
     input   [4 :0]              ex_fwd_addr,    // 0 if instruction does not write
@@ -64,7 +61,6 @@ module decode_stage(
     output reg                  exc_miss_o,
     output reg [4:0]            exccode_o,
     output reg                  bd_o,
-    output reg                  eret_o,
     input                       cancel_i,
     output                      cancel_o
 );
@@ -190,6 +186,23 @@ module decode_stage(
     // write data to [31] generated in ex stage
     wire inst_r31_wex             = op_bltzal||op_bgezal||op_jal;
 
+    // alu operation
+    assign ctrl_sig[`I_ALU_ADD]   = op_add||op_addu||op_addi||op_addiu;
+    assign ctrl_sig[`I_ALU_SUB]   = op_sub||op_subu||op_beq||op_bne;
+    assign ctrl_sig[`I_ALU_AND]   = op_and||op_andi;
+    assign ctrl_sig[`I_ALU_OR]    = op_or||op_ori;
+    assign ctrl_sig[`I_ALU_XOR]   = op_xor||op_xori;
+    assign ctrl_sig[`I_ALU_NOR]   = op_nor;
+    assign ctrl_sig[`I_ALU_SLT]   = op_slt||op_slti;
+    assign ctrl_sig[`I_ALU_SLTU]  = op_sltu||op_sltiu;
+    assign ctrl_sig[`I_ALU_SLL]   = op_sll||op_sllv;
+    assign ctrl_sig[`I_ALU_SRL]   = op_srl||op_srlv;
+    assign ctrl_sig[`I_ALU_SRA]   = op_sra||op_srav;
+    
+    assign ctrl_sig[`I_RESERVED]  = reserved;
+    
+    assign ctrl_sig[`I_SYSCALL]   = op_syscall;
+    assign ctrl_sig[`I_BREAK]     = op_break;
     assign ctrl_sig[`I_MFHI]      = op_mfhi;
     assign ctrl_sig[`I_MTHI]      = op_mthi;
     assign ctrl_sig[`I_MFLO]      = op_mflo;
@@ -219,18 +232,7 @@ module decode_stage(
     assign ctrl_sig[`I_MEM_R]     = op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr;
     // store instruction
     assign ctrl_sig[`I_MEM_W]     = op_sb||op_sh||op_swl||op_sw||op_swr;
-    // alu operation
-    assign ctrl_sig[`I_ALU_ADD]   = op_add||op_addu||op_addi||op_addiu;
-    assign ctrl_sig[`I_ALU_SUB]   = op_sub||op_subu||op_beq||op_bne;
-    assign ctrl_sig[`I_ALU_AND]   = op_and||op_andi;
-    assign ctrl_sig[`I_ALU_OR]    = op_or||op_ori;
-    assign ctrl_sig[`I_ALU_XOR]   = op_xor||op_xori;
-    assign ctrl_sig[`I_ALU_NOR]   = op_nor;
-    assign ctrl_sig[`I_ALU_SLT]   = op_slt||op_slti;
-    assign ctrl_sig[`I_ALU_SLTU]  = op_sltu||op_sltiu;
-    assign ctrl_sig[`I_ALU_SLL]   = op_sll||op_sllv;
-    assign ctrl_sig[`I_ALU_SRL]   = op_srl||op_srlv;
-    assign ctrl_sig[`I_ALU_SRA]   = op_sra||op_srav;
+
     // read [rs]
     assign ctrl_sig[`I_RS_R]      = op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mthi||op_mtlo||op_mult||op_multu||op_div||op_divu||
                                    op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||
@@ -301,19 +303,12 @@ module decode_stage(
     reg prev_branch; // if previous instruction is branch/jump
     always @(posedge clk) begin
         if (!resetn) prev_branch <= 1'b0;
-        else if (valid_i && done_o && ready_i) prev_branch <= br_inst && !(valid_i && exc_i);
+        else if (valid_i && done_o && ready_i) prev_branch <= br_inst && !(valid_i && exc_i) && !cancelled_i && !cancel_i && !cancel_save;
     end
-
-    // exceptions
-    wire exc = inst_ok && (op_eret || op_syscall || op_break || reserved || int_sig);
-    wire [4:0] exccode = {5{op_syscall}} & `EXC_SYS
-                       | {5{op_break}} & `EXC_BP
-                       | {5{reserved}} & `EXC_RI
-                       | {5{int_sig}} & `EXC_INT;
     
-    assign cancel_o = valid_i && !exc_i && exc && !cancel_save && !cancel_i && !cancelled_i;
+    assign cancel_o = 1'b0; ///////////////
     
-    assign done_o = inst_ok && (!fwd_stall || cancelled_i) || exc_i || exc;
+    assign done_o = inst_ok && (!fwd_stall || cancelled_i) || exc_i;
     
     wire [15:0] imm = `GET_IMM(inst);
 
@@ -331,7 +326,6 @@ module decode_stage(
             exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
             bd_o        <= 1'b0;
-            eret_o      <= 1'b0;
         end
         else if (ready_i) begin
             valid_o     <= valid_i && done_o && !cancelled_i && !cancel_i && !cancel_save;
@@ -344,11 +338,10 @@ module decode_stage(
             waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst)
                          | {5{inst_rd_wex}}                 & `GET_RD(inst)
                          | {5{inst_r31_wex}}                & 5'd31;
-            exc_o       <= exc_i || valid_i && exc && !cancel_save && !cancel_i && !cancelled_i;
+            exc_o       <= exc_i;
             exc_miss_o  <= exc_miss_i;
-            exccode_o   <= valid_i && exc_i ? exccode_i : exccode;
+            exccode_o   <= exccode_i;
             bd_o        <= prev_branch;
-            eret_o      <= valid_i && inst_ok && op_eret;
         end
     end
 
