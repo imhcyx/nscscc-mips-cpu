@@ -42,7 +42,7 @@ module mips_cpu(
     
     wire [31:0] cp0_index, cp0_random, cp0_entrylo0, cp0_entrylo1, cp0_entryhi;
     wire [11:0] cp0_mask;
-    wire [31:0] cp0_status, cp0_cause, cp0_epc;
+    wire [31:0] cp0_status, cp0_cause, cp0_epc, cp0_ebase;
     
     wire tlbr, tlbwi, tlbwr, tlbp;
     wire [31:0] tlbr_lo0, tlbr_lo1, tlbr_hi, tlbp_index;
@@ -79,7 +79,8 @@ module mips_cpu(
         .entryhi        (cp0_entryhi),
         .status         (cp0_status),
         .cause          (cp0_cause),
-        .epc            (cp0_epc)
+        .epc            (cp0_epc),
+        .ebase          (cp0_ebase)
     );
     
     // Address Translation

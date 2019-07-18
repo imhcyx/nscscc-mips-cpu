@@ -15,11 +15,10 @@
 `define CP0_CAUSE           8'b01101_000 // 13, 0
 `define CP0_EPC             8'b01110_000 // 14, 0
 `define CP0_PRID            8'b01111_000 // 15, 0
+`define CP0_EBASE           8'b01111_001 // 15, 1
 `define CP0_CONFIG          8'b10000_000 // 16, 0
-`define CP0_ERROREPC        8'b11110_000 // 30, 0
-
-`define CP0_TAGLO_RD        5'd28
-`define CP0_TAGHI_RD        5'd29
+`define CP0_CONFIG1         8'b10000_001 // 16, 1
+`define CP0_TAGLO           8'b11100_000 // 28, 0
 
 // TLB parameters
 `define TLB_IDXBITS         5
@@ -39,6 +38,10 @@
 `define ENTRYLO_D           2
 `define ENTRYLO_V           1
 `define ENTRYLO_G           0
+
+// Context (4, 0)
+`define CONTEXT_PTEBASE     31:23
+`define CONTEXT_BADVPN2     22:4
 
 // PageMask (5, 0)
 // Note: length of mask field is set to 12
@@ -69,6 +72,12 @@
 `define CAUSE_IP7_2         15:10
 `define CAUSE_IP1_0         9:8
 `define CAUSE_EXCCODE       6:2
+
+// EBase (15, 1)
+`define EBASE_BASE          29:12
+
+// Config (16, 0)
+`define CONFIG_K0           2:0
 
 // Exception vectors
 
