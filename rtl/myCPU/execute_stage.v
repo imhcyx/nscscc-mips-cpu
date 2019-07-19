@@ -79,7 +79,10 @@ module execute_stage(
     output                      commit_bd,
     output  [31:0]              commit_epc,
     output  [31:0]              commit_bvaddr,
-    output                      commit_eret
+    output                      commit_eret,
+    
+    output reg [31:0]           perfcnt_load_waitreq,
+    output reg [31:0]           perfcnt_store_waitreq
 );
 
     wire valid;
@@ -379,6 +382,16 @@ module execute_stage(
             eaddr_o     <= eaddr_i;
             rdata2_o    <= rdata2_i;
         end
+    end
+    
+    // performance counters
+    always @(posedge clk) begin
+        // stalled cycles for load req
+        if (!resetn) perfcnt_load_waitreq <= 32'd0;
+        else if (valid && data_req && !done_o && ctrl_i[`I_MEM_R]) perfcnt_load_waitreq <= perfcnt_load_waitreq + 32'd1;
+        // stalled cycles for store req
+        if (!resetn) perfcnt_store_waitreq <= 32'd0;
+        else if (valid && data_req && !done_o && ctrl_i[`I_MEM_W]) perfcnt_store_waitreq <= perfcnt_store_waitreq + 32'd1;
     end
 
 endmodule

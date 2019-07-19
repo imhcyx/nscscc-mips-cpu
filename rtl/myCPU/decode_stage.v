@@ -62,7 +62,9 @@ module decode_stage(
     output reg [4:0]            exccode_o,
     output reg                  bd_o,
     input                       cancel_i,
-    output                      cancel_o
+    output                      cancel_o,
+    
+    output reg [31:0]           perfcnt_fetch_waitack
 );
 
     wire valid;
@@ -343,6 +345,12 @@ module decode_stage(
             exccode_o   <= exccode_i;
             bd_o        <= prev_branch;
         end
+    end
+    
+    // performance counters
+    always @(posedge clk) begin
+        if (!resetn) perfcnt_fetch_waitack <= 32'd0;
+        else if (valid_i && !exc_i && !inst_ok) perfcnt_fetch_waitack <= perfcnt_fetch_waitack + 32'd1;
     end
 
 endmodule

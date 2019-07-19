@@ -33,7 +33,9 @@ module fetch_stage(
     output reg          exc_miss_o,
     output reg [4:0]    exccode_o,
     input               cancel_i,
-    input               commit_i
+    input               commit_i,
+    
+    output reg [31:0]   perfcnt_fetch_waitreq
 );
     
     // tlb query fsm (0=check/bypass, 1=query, 2=request)
@@ -133,6 +135,12 @@ module fetch_stage(
             exc_miss_o  <= (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss;
             exccode_o   <= if_adel ? `EXC_ADEL : `EXC_TLBL;
         end
+    end
+    
+    // performance counters
+    always @(posedge clk) begin
+        if (!resetn) perfcnt_fetch_waitreq <= 32'd0;
+        else if (valid_i && inst_req && !inst_addr_ok) perfcnt_fetch_waitreq <= perfcnt_fetch_waitreq + 32'd1;
     end
 
 endmodule
