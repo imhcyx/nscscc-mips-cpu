@@ -273,7 +273,7 @@ module cp0regs(
         if (!resetn) status_um <= 1'b0;
         else if (status_write) status_um <= mtc0_data[`STATUS_UM];
         // EXL
-        if (!resetn) status_exl <= 1'b1;
+        if (!resetn) status_exl <= 1'b0;
         else if (commit_exc) status_exl <= !commit_eret;
         else if (status_write) status_exl <= mtc0_data[`STATUS_EXL];
         // IE

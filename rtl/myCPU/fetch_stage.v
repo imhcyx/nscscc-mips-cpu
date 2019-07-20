@@ -61,7 +61,8 @@ module fetch_stage(
         if (cancel_i)   qstate_next = 2'd0;
         else begin
             case (qstate)
-            2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i) ? 2'd0 : 2'd1;
+            // wait for ready_i before tlb lookup because pc_i might be changed by branch/jump instructions
+            2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !ready_i) ? 2'd0 : 2'd1;
             2'd1:       qstate_next = 2'd2;
             2'd2:       qstate_next = inst_addr_ok ? 2'd0 : 2'd2;
             default:    qstate_next = 2'd0;
