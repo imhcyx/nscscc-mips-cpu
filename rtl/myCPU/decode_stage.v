@@ -50,6 +50,8 @@ module decode_stage(
     output reg [99:0]           decoded_o,
     output reg [31:0]           rdata1_o,
     output reg [31:0]           rdata2_o,
+    output reg [31:0]           pc_j_o,
+    output reg [31:0]           pc_b_o,
     
     // exception interface
     input                       exc_i,
@@ -221,6 +223,10 @@ module decode_stage(
     assign done_o = inst_ok && (!fwd_stall || cancelled_i) || exc_i;
     
     wire [15:0] imm = `GET_IMM(inst);
+    
+    wire [31:0] seq_pc = pc_i + 32'd4;
+    wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
+    wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst), 2'd0};
 
     always @(posedge clk) begin
         if (!resetn) begin
@@ -230,6 +236,8 @@ module decode_stage(
             decoded_o   <= 100'd0;
             rdata1_o    <= 32'd0;
             rdata2_o    <= 32'd0;
+            pc_j_o      <= 32'd0;
+            pc_b_o      <= 32'd0;
             exc_o       <= 1'b0;
             exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
@@ -242,6 +250,8 @@ module decode_stage(
             decoded_o   <= decoded;
             rdata1_o    <= fwd_rdata1;
             rdata2_o    <= fwd_rdata2;
+            pc_j_o      <= pc_jump;
+            pc_b_o      <= pc_branch;
             exc_o       <= exc_i;
             exc_miss_o  <= exc_miss_i;
             exccode_o   <= exccode_i;

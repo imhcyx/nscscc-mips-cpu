@@ -56,6 +56,8 @@ module execute_stage(
     input   [99:0]              decoded_i,
     input   [31:0]              rdata1_i,
     input   [31:0]              rdata2_i,
+    input   [31:0]              pc_j_i,
+    input   [31:0]              pc_b_i,
     input                       ready_i,
     output reg                  valid_o,
     output reg [31:0]           pc_o,
@@ -287,14 +289,10 @@ module execute_stage(
                        || (do_bltz && rdata1_i[31]);
 
     assign branch       = valid && branch_ready && (do_j||do_jr||branch_taken); // && done_o
-
-    wire [31:0] seq_pc = pc_i + 32'd4;
-    wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
-    wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
-
-    assign target_pc    = {32{!(do_j||do_jr)}} & pc_branch
+    
+    assign target_pc    = {32{!(do_j||do_jr)}} & pc_b_i
                         | {32{do_jr}} & rdata1_i
-                        | {32{do_j}} & pc_jump;
+                        | {32{do_j}} & pc_j_i;
     
     // mtc0/mfc0
     assign cp0_w = valid && op_mtc0;

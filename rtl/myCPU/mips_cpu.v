@@ -215,7 +215,7 @@ module mips_cpu(
     wire id_ex_valid, ex_id_ready, id_done;
     wire [31:0] id_ex_pc, id_ex_inst;
     wire [99:0] id_ex_decoded;
-    wire [31:0] id_ex_rdata1, id_ex_rdata2;
+    wire [31:0] id_ex_rdata1, id_ex_rdata2, id_ex_pc_j, id_ex_pc_b;
     wire id_ex_exc, id_ex_exc_miss, id_ex_bd;
     wire [4:0] id_ex_exccode;
     
@@ -245,6 +245,8 @@ module mips_cpu(
         .decoded_o      (id_ex_decoded),
         .rdata1_o       (id_ex_rdata1),
         .rdata2_o       (id_ex_rdata2),
+        .pc_j_o         (id_ex_pc_j),
+        .pc_b_o         (id_ex_pc_b),
         .exc_i          (if_id_exc),
         .exc_miss_i     (if_id_exc_miss),
         .exccode_i      (if_id_exccode),
@@ -304,6 +306,8 @@ module mips_cpu(
         .decoded_i      (id_ex_decoded),
         .rdata1_i       (id_ex_rdata1),
         .rdata2_i       (id_ex_rdata2),
+        .pc_j_i         (id_ex_pc_j),
+        .pc_b_i         (id_ex_pc_b),
         .ready_i        (wb_ex_ready),
         .valid_o        (ex_wb_valid),
         .pc_o           (ex_wb_pc),
