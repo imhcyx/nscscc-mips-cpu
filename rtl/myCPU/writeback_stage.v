@@ -21,7 +21,13 @@ module writeback_stage(
     input   [31:0]              result_i,
     input   [31:0]              eaddr_i,
     input   [31:0]              rdata2_i,
-    input   [4 :0]              waddr_i
+    input   [4 :0]              waddr_i,
+    
+    output reg [31:0]           perfcnt_inst,
+    output reg [31:0]           perfcnt_load,
+    output reg [31:0]           perfcnt_store,
+    output reg [31:0]           perfcnt_load_waitack,
+    output reg [31:0]           perfcnt_store_waitack
 );
     
     // process length & extension for read
@@ -64,5 +70,24 @@ module writeback_stage(
     assign rf_wen   = valid_i && done_o && (ctrl_i[`I_WEX]||ctrl_i[`I_WWB]);
     assign rf_waddr = waddr_i;
     assign rf_wdata = ctrl_i[`I_MEM_R] ? memdata : result_i;
+    
+    // performance counters
+    always @(posedge clk) begin
+        // instruction count
+        if (!resetn) perfcnt_inst <= 32'd0;
+        else if (valid_i && done_o) perfcnt_inst <= perfcnt_inst + 32'd1;
+        // load count
+        if (!resetn) perfcnt_load <= 32'd0;
+        else if (valid_i && done_o && ctrl_i[`I_MEM_R]) perfcnt_load <= perfcnt_load + 32'd1;
+        // store count
+        if (!resetn) perfcnt_store <= 32'd0;
+        else if (valid_i && done_o && ctrl_i[`I_MEM_W]) perfcnt_store <= perfcnt_store + 32'd1;
+        // stalled cycles for load ack
+        if (!resetn) perfcnt_load_waitack <= 32'd0;
+        else if (valid_i && !done_o && ctrl_i[`I_MEM_R]) perfcnt_load_waitack <= perfcnt_load_waitack + 32'd1;
+        // stalled cycles for store ack
+        if (!resetn) perfcnt_store_waitack <= 32'd0;
+        else if (valid_i && !done_o && ctrl_i[`I_MEM_W]) perfcnt_store_waitack <= perfcnt_store_waitack + 32'd1;
+    end
 
 endmodule

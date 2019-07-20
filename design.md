@@ -1,3 +1,6 @@
+**THIS DOCUMENT IS CURRENTLY DEPRECATED**
+---
+
 # CPU设计说明
 
 ## CPU核心设计

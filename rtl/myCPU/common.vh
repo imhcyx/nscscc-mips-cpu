@@ -15,11 +15,10 @@
 `define CP0_CAUSE           8'b01101_000 // 13, 0
 `define CP0_EPC             8'b01110_000 // 14, 0
 `define CP0_PRID            8'b01111_000 // 15, 0
+`define CP0_EBASE           8'b01111_001 // 15, 1
 `define CP0_CONFIG          8'b10000_000 // 16, 0
-`define CP0_ERROREPC        8'b11110_000 // 30, 0
-
-`define CP0_TAGLO_RD        5'd28
-`define CP0_TAGHI_RD        5'd29
+`define CP0_CONFIG1         8'b10000_001 // 16, 1
+`define CP0_TAGLO           8'b11100_000 // 28, 0
 
 // TLB parameters
 `define TLB_IDXBITS         5
@@ -40,6 +39,10 @@
 `define ENTRYLO_V           1
 `define ENTRYLO_G           0
 
+// Context (4, 0)
+`define CONTEXT_PTEBASE     31:23
+`define CONTEXT_BADVPN2     22:4
+
 // PageMask (5, 0)
 // Note: length of mask field is set to 12
 `define PAGEMASK_MASK       24:13
@@ -56,7 +59,6 @@
 `define STATUS_BEV          22
 `define STATUS_IM           15:8
 `define STATUS_UM           4
-`define STATUS_ERL          2
 `define STATUS_EXL          1
 `define STATUS_IE           0
 
@@ -69,6 +71,12 @@
 `define CAUSE_IP7_2         15:10
 `define CAUSE_IP1_0         9:8
 `define CAUSE_EXCCODE       6:2
+
+// EBase (15, 1)
+`define EBASE_BASE          29:12
+
+// Config (16, 0)
+`define CONFIG_K0           2:0
 
 // Exception vectors
 
@@ -116,58 +124,38 @@
 `define GET_IMM(x)      x[15:0]
 `define GET_INDEX(x) x[25:0]
 
+// ALUop encoding
+
+`define ALU_ADD   0
+`define ALU_SUB   1
+`define ALU_AND   2
+`define ALU_OR    3
+`define ALU_XOR   4
+`define ALU_NOR   5
+`define ALU_SLT   6
+`define ALU_SLTU  7
+`define ALU_SLL   8
+`define ALU_SRL   9
+`define ALU_SRA   10
+
 // Control signal indexes
 
-`define I_ALU_ADD   0
-`define I_ALU_SUB   1
-`define I_ALU_AND   2
-`define I_ALU_OR    3
-`define I_ALU_XOR   4
-`define I_ALU_NOR   5
-`define I_ALU_SLT   6
-`define I_ALU_SLTU  7
-`define I_ALU_SLL   8
-`define I_ALU_SRL   9
-`define I_ALU_SRA   10
+`define I_LB        0
+`define I_LH        1
+`define I_LWL       2
+`define I_LW        3
+`define I_LBU       4
+`define I_LHU       5
+`define I_LWR       6
+`define I_SB        7
+`define I_SH        8
+`define I_SWL       9
+`define I_SW        10
+`define I_SWR       11
 
-`define I_MFHI      11
-`define I_MTHI      12
-`define I_MFLO      13
-`define I_MTLO      14
-`define I_LUI       15
-`define I_TLBR      16
-`define I_TLBWI     17
-`define I_TLBWR     18
-`define I_TLBP      19
-`define I_ERET      20
-`define I_MFC0      21
-`define I_MTC0      22
-`define I_LB        23
-`define I_LH        24
-`define I_LWL       25
-`define I_LW        26
-`define I_LBU       27
-`define I_LHU       28
-`define I_LWR       29
-`define I_SB        30
-`define I_SH        31
-`define I_SWL       32
-`define I_SW        33
-`define I_SWR       34
+`define I_MEM_R     12
+`define I_MEM_W     13
+`define I_WEX       14
+`define I_WWB       15
 
-`define I_MEM_R     35
-`define I_MEM_W     36
-`define I_RS_R      37
-`define I_RT_R      38
-`define I_WEX       39
-`define I_WWB       40
-`define I_IMM_SX    41
-`define I_ALU_A_SA  42
-`define I_ALU_B_IMM 43
-`define I_LINK      44
-`define I_DO_MUL    45
-`define I_DO_DIV    46
-`define I_MD_SIGN   47
-`define I_EXC_OF    48
-
-`define I_MAX       49
+`define I_MAX       16

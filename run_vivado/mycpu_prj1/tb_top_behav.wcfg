@@ -11,15 +11,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="29380042250000fs"></ZoomStartTime>
-      <ZoomEndTime time="29380409750001fs"></ZoomEndTime>
-      <Cursor1Time time="29380103500000fs"></Cursor1Time>
+      <ZoomStartTime time="32359158916667fs"></ZoomStartTime>
+      <ZoomEndTime time="32359528416668fs"></ZoomEndTime>
+      <Cursor1Time time="32359211500000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="182"></NameColumnWidth>
+      <NameColumnWidth column_width="178"></NameColumnWidth>
       <ValueColumnWidth column_width="58"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="20" />
+   <WVObjectSize size="22" />
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/clk" type="logic">
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
@@ -153,6 +153,14 @@
          <obj_property name="ObjectShortName">cp0_epc[31:0]</obj_property>
       </wvobject>
    </wvobject>
+   <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_valid_r" type="logic">
+      <obj_property name="ElementShortName">if_valid_r</obj_property>
+      <obj_property name="ObjectShortName">if_valid_r</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_cancel" type="logic">
+      <obj_property name="ElementShortName">id_cancel</obj_property>
+      <obj_property name="ObjectShortName">id_cancel</obj_property>
+   </wvobject>
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_valid" type="logic">
       <obj_property name="ElementShortName">if_valid</obj_property>
       <obj_property name="ObjectShortName">if_valid</obj_property>
@@ -164,6 +172,8 @@
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_pc" type="array">
       <obj_property name="ElementShortName">if_pc[31:0]</obj_property>
       <obj_property name="ObjectShortName">if_pc[31:0]</obj_property>
+      <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+      <obj_property name="UseCustomSignalColor">true</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/pc" type="array">
       <obj_property name="ElementShortName">pc[31:0]</obj_property>
@@ -185,18 +195,6 @@
          <obj_property name="ElementShortName">pc_save[31:0]</obj_property>
          <obj_property name="ObjectShortName">pc_save[31:0]</obj_property>
       </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/inst_save" type="array">
-         <obj_property name="ElementShortName">inst_save[31:0]</obj_property>
-         <obj_property name="ObjectShortName">inst_save[31:0]</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/wait_valid" type="logic">
-         <obj_property name="ElementShortName">wait_valid</obj_property>
-         <obj_property name="ObjectShortName">wait_valid</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/inst_saved" type="logic">
-         <obj_property name="ElementShortName">inst_saved</obj_property>
-         <obj_property name="ObjectShortName">inst_saved</obj_property>
-      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/fetch/ok_to_req" type="logic">
          <obj_property name="ElementShortName">ok_to_req</obj_property>
          <obj_property name="ObjectShortName">ok_to_req</obj_property>
@@ -217,10 +215,12 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_pc" type="array">
          <obj_property name="ElementShortName">if_id_pc[31:0]</obj_property>
          <obj_property name="ObjectShortName">if_id_pc[31:0]</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
       </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_inst" type="array">
-         <obj_property name="ElementShortName">if_id_inst[31:0]</obj_property>
-         <obj_property name="ObjectShortName">if_id_inst[31:0]</obj_property>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_cancelled" type="logic">
+         <obj_property name="ElementShortName">if_id_cancelled</obj_property>
+         <obj_property name="ObjectShortName">if_id_cancelled</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/if_id_exc" type="logic">
          <obj_property name="ElementShortName">if_id_exc</obj_property>
@@ -266,6 +266,11 @@
    <wvobject fp_name="group181" type="group">
       <obj_property name="label">ID</obj_property>
       <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/cancelled" type="logic">
+         <obj_property name="ElementShortName">cancelled</obj_property>
+         <obj_property name="ObjectShortName">cancelled</obj_property>
+      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/fwd_ex_raddr1_hit" type="logic">
          <obj_property name="ElementShortName">fwd_ex_raddr1_hit</obj_property>
          <obj_property name="ObjectShortName">fwd_ex_raddr1_hit</obj_property>
@@ -286,11 +291,26 @@
          <obj_property name="ElementShortName">fwd_stall</obj_property>
          <obj_property name="ObjectShortName">fwd_stall</obj_property>
       </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/br_inst" type="logic">
+         <obj_property name="ElementShortName">br_inst</obj_property>
+         <obj_property name="ObjectShortName">br_inst</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/prev_branch" type="logic">
+         <obj_property name="ElementShortName">prev_branch</obj_property>
+         <obj_property name="ObjectShortName">prev_branch</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/reserved" type="logic">
+         <obj_property name="ElementShortName">reserved</obj_property>
+         <obj_property name="ObjectShortName">reserved</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/decode/exc" type="logic">
+         <obj_property name="ElementShortName">exc</obj_property>
+         <obj_property name="ObjectShortName">exc</obj_property>
+      </wvobject>
    </wvobject>
    <wvobject fp_name="group44" type="group">
       <obj_property name="label">forward</obj_property>
       <obj_property name="DisplayName">label</obj_property>
-      <obj_property name="isExpanded"></obj_property>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/ex_fwd_addr" type="array">
          <obj_property name="ElementShortName">ex_fwd_addr[4:0]</obj_property>
          <obj_property name="ObjectShortName">ex_fwd_addr[4:0]</obj_property>
@@ -331,14 +351,16 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_pc" type="array">
          <obj_property name="ElementShortName">id_ex_pc[31:0]</obj_property>
          <obj_property name="ObjectShortName">id_ex_pc[31:0]</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_inst" type="array">
          <obj_property name="ElementShortName">id_ex_inst[31:0]</obj_property>
          <obj_property name="ObjectShortName">id_ex_inst[31:0]</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_ctrl" type="array">
-         <obj_property name="ElementShortName">id_ex_ctrl[48:0]</obj_property>
-         <obj_property name="ObjectShortName">id_ex_ctrl[48:0]</obj_property>
+         <obj_property name="ElementShortName">id_ex_ctrl[56:0]</obj_property>
+         <obj_property name="ObjectShortName">id_ex_ctrl[56:0]</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/id_ex_rdata1" type="array">
          <obj_property name="ElementShortName">id_ex_rdata1[31:0]</obj_property>
@@ -425,14 +447,16 @@
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/ex_wb_pc" type="array">
          <obj_property name="ElementShortName">ex_wb_pc[31:0]</obj_property>
          <obj_property name="ObjectShortName">ex_wb_pc[31:0]</obj_property>
+         <obj_property name="CustomSignalColor">#00FFFF</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/ex_wb_inst" type="array">
          <obj_property name="ElementShortName">ex_wb_inst[31:0]</obj_property>
          <obj_property name="ObjectShortName">ex_wb_inst[31:0]</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/ex_wb_ctrl" type="array">
-         <obj_property name="ElementShortName">ex_wb_ctrl[48:0]</obj_property>
-         <obj_property name="ObjectShortName">ex_wb_ctrl[48:0]</obj_property>
+         <obj_property name="ElementShortName">ex_wb_ctrl[56:0]</obj_property>
+         <obj_property name="ObjectShortName">ex_wb_ctrl[56:0]</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/u_cpu/cpu/ex_wb_result" type="array">
          <obj_property name="ElementShortName">ex_wb_result[31:0]</obj_property>

@@ -39,7 +39,9 @@ module cp0regs(
     output  [31:0]      entryhi,
     output  [31:0]      status,
     output  [31:0]      cause,
-    output reg [31:0]   epc
+    output reg [31:0]   epc,
+    output  [31:0]      ebase,
+    output reg [2:0]    config_k0
 );
 
     wire [5:0] hw_int;
@@ -82,7 +84,7 @@ module cp0regs(
         else if (wired_write) wired_wired <= mtc0_data[`WIRED_WIRED];
     end
     
-    // Random (0, 0)
+    // Random (1, 0)
     reg [`TLB_IDXBITS-1:0] random_random;
     assign random = random_random;
     
@@ -153,6 +155,26 @@ module cp0regs(
         end
     end
     
+    // Context (4, 0)
+    
+    reg [8:0] context_ptebase;
+    reg [18:0] context_badvpn2;
+    
+    wire [31:0] context = {
+        context_ptebase, // 31:23
+        context_badvpn2, // 22:4
+        4'd0
+    };
+    
+    wire context_write = mtc0 && addr == `CP0_CONTEXT;
+    
+    always @(posedge clk) begin
+        // PTEBase
+        if (context_write) context_ptebase <= mtc0_data[`CONTEXT_PTEBASE];
+        // BadVPN2
+        if (exception_commit && exception_mem) context_badvpn2 <= commit_bvaddr[31:13];
+    end
+    
     // PageMask (5, 0)
     wire [31:0] pagemask = {
         8'd0,
@@ -219,7 +241,6 @@ module cp0regs(
     reg status_bev;
     reg [7:0] status_im;
     reg status_um;
-    reg status_erl;
     reg status_exl;
     reg status_ie;
     assign status = {
@@ -232,7 +253,7 @@ module cp0regs(
         3'd0,
         status_um,  // 4
         1'b0,
-        status_erl, // 2
+        1'b0, // 2
         status_exl, // 1
         status_ie   // 0
     };
@@ -251,12 +272,8 @@ module cp0regs(
         // UM
         if (!resetn) status_um <= 1'b0;
         else if (status_write) status_um <= mtc0_data[`STATUS_UM];
-        // ERL
-        // Note: MIPS specifies 1 as the reset value of ERL while NSCSCC specifies 0
-        if (!resetn) status_erl <= 1'b0;
-        else if (status_write) status_erl <= mtc0_data[`STATUS_ERL];
         // EXL
-        if (!resetn) status_exl <= 1'b1;
+        if (!resetn) status_exl <= 1'b0;
         else if (commit_exc) status_exl <= !commit_eret;
         else if (status_write) status_exl <= mtc0_data[`STATUS_EXL];
         // IE
@@ -290,7 +307,7 @@ module cp0regs(
     always @(posedge clk) begin
         // BD
         if (!resetn) cause_bd <= 1'b0;
-        else if (exception_commit) cause_bd <= commit_bd;
+        else if (exception_commit && !status_exl) cause_bd <= commit_bd;
         // TI
         if (!resetn) cause_ti <= 1'b0;
         else cause_ti <= timer_int;
@@ -312,7 +329,72 @@ module cp0regs(
     wire epc_write = mtc0 && addr == `CP0_EPC;
     always @(posedge clk) begin
         if (epc_write) epc <= mtc0_data;
-        else if (exception_commit) epc <= commit_epc;
+        else if (exception_commit && !status_exl) epc <= commit_epc;
+    end
+    
+    // PRId (15, 0)
+    wire [31:0] prid = 32'd0; // TODO
+    
+    // EBase (15, 1)
+    reg [17:0] ebase_base;
+    assign ebase = {
+        2'b10,
+        ebase_base, // 29:12
+        2'd0,
+        10'd0
+    };
+    
+    wire ebase_write = mtc0 && addr == `CP0_EBASE;
+    always @(posedge clk) begin
+        if (!resetn) ebase_base <= 18'd0;
+        else if (ebase_write) ebase_base <= mtc0_data[`EBASE_BASE];
+    end
+    
+    // Config (16, 0)
+    wire [31:0] config0 = {
+        1'b1, // M
+        3'd0,
+        3'd0,
+        9'd0,
+        1'b0, // BE
+        2'd0,
+        3'd0,
+        3'd1, // MT
+        3'd0,
+        1'b0, // VI
+        config_k0
+    };
+    
+    wire config_write = mtc0 && addr == `CP0_CONFIG;
+    always @(posedge clk) begin
+        if (!resetn) config_k0 <= 3'd3;
+        else if (config_write) config_k0 <= mtc0_data[`CONFIG_K0];
+    end
+    
+    // Config1 (16, 1)
+    wire [31:0] config1 = {
+        1'b0,
+        6'd31,  // TLB entries = 32
+        3'd1,   // Icache sets = 128
+        3'd4,   // Icache line size = 32
+        3'd1,   // Icache associativity = 2
+        3'd1,   // Dcache sets = 128
+        3'd4,   // Dcache line size = 32
+        3'd1,   // Dcache associativity = 2
+        1'b0,   // C2
+        1'b0,
+        1'b0,   // PC
+        1'b0,   // WR
+        1'b0,
+        1'b0,   // EP
+        1'b0    // FP
+    };
+    
+    // TagLo (28, 0)
+    reg [31:0] taglo;
+    wire taglo_write = mtc0 && addr == `CP0_TAGLO;
+    always @(posedge clk) begin
+        if (taglo_write) taglo <= mtc0_data;
     end
     
     // timer interrupt
@@ -322,21 +404,27 @@ module cp0regs(
         else if (count == compare) timer_int <= 1'b1;
     end
     
-    assign int_sig = {cause_ip7_2, cause_ip1_0} & status_im && !status_erl && !status_exl && status_ie;
+    assign int_sig = {cause_ip7_2, cause_ip1_0} & status_im && !status_exl && status_ie;
     
     assign mfc0_data =
-        {32{addr == `CP0_INDEX}}    & index |
-        {32{addr == `CP0_RANDOM}}   & random |
-        {32{addr == `CP0_ENTRYLO0}} & entrylo0 |
-        {32{addr == `CP0_ENTRYLO1}} & entrylo1 |
-        {32{addr == `CP0_PAGEMASK}} & pagemask |
-        {32{addr == `CP0_WIRED}}    & wired |
-        {32{addr == `CP0_BADVADDR}} & badvaddr |
-        {32{addr == `CP0_COUNT}}    & count |
-        {32{addr == `CP0_ENTRYHI}}  & entryhi |
-        {32{addr == `CP0_COMPARE}}  & compare |
-        {32{addr == `CP0_STATUS}}   & status |
-        {32{addr == `CP0_CAUSE}}    & cause |
-        {32{addr == `CP0_EPC}}      & epc;
+        {32{addr == `CP0_INDEX      }} & index      |
+        {32{addr == `CP0_RANDOM     }} & random     |
+        {32{addr == `CP0_ENTRYLO0   }} & entrylo0   |
+        {32{addr == `CP0_ENTRYLO1   }} & entrylo1   |
+        {32{addr == `CP0_CONTEXT    }} & context    |
+        {32{addr == `CP0_PAGEMASK   }} & pagemask   |
+        {32{addr == `CP0_WIRED      }} & wired      |
+        {32{addr == `CP0_BADVADDR   }} & badvaddr   |
+        {32{addr == `CP0_COUNT      }} & count      |
+        {32{addr == `CP0_ENTRYHI    }} & entryhi    |
+        {32{addr == `CP0_COMPARE    }} & compare    |
+        {32{addr == `CP0_STATUS     }} & status     |
+        {32{addr == `CP0_CAUSE      }} & cause      |
+        {32{addr == `CP0_EPC        }} & epc        |
+        {32{addr == `CP0_PRID       }} & prid       |
+        {32{addr == `CP0_EBASE      }} & ebase      |
+        {32{addr == `CP0_CONFIG     }} & config0    |
+        {32{addr == `CP0_CONFIG1    }} & config1    |
+        {32{addr == `CP0_TAGLO      }} & taglo      ;
     
 endmodule

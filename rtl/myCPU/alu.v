@@ -14,17 +14,17 @@ module alu(
 );
 
   // ALUop decoder
-  wire alu_add    = ALUop[`I_ALU_ADD];
-  wire alu_sub    = ALUop[`I_ALU_SUB];
-  wire alu_and    = ALUop[`I_ALU_AND];
-  wire alu_or     = ALUop[`I_ALU_OR];
-  wire alu_xor    = ALUop[`I_ALU_XOR];
-  wire alu_nor    = ALUop[`I_ALU_NOR];
-  wire alu_slt    = ALUop[`I_ALU_SLT];
-  wire alu_sltu   = ALUop[`I_ALU_SLTU];
-  wire alu_sll    = ALUop[`I_ALU_SLL];
-  wire alu_srl    = ALUop[`I_ALU_SRL];
-  wire alu_sra    = ALUop[`I_ALU_SRA];
+  wire alu_add    = ALUop[`ALU_ADD];
+  wire alu_sub    = ALUop[`ALU_SUB];
+  wire alu_and    = ALUop[`ALU_AND];
+  wire alu_or     = ALUop[`ALU_OR];
+  wire alu_xor    = ALUop[`ALU_XOR];
+  wire alu_nor    = ALUop[`ALU_NOR];
+  wire alu_slt    = ALUop[`ALU_SLT];
+  wire alu_sltu   = ALUop[`ALU_SLTU];
+  wire alu_sll    = ALUop[`ALU_SLL];
+  wire alu_srl    = ALUop[`ALU_SRL];
+  wire alu_sra    = ALUop[`ALU_SRA];
 
   // invert B for subtractions (sub & slt)
   wire invb = alu_sub | alu_slt | alu_sltu;
