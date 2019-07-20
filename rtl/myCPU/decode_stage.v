@@ -47,11 +47,9 @@ module decode_stage(
     output reg                  valid_o,
     output reg [31:0]           pc_o,
     output reg [31:0]           inst_o,
-    output reg [`I_MAX-1:0]     ctrl_o,
+    output reg [99:0]           decoded_o,
     output reg [31:0]           rdata1_o,
     output reg [31:0]           rdata2_o,
-    output reg [31:0]           eaddr_o,
-    output reg [4 :0]           waddr_o,
     
     // exception interface
     input                       exc_i,
@@ -91,8 +89,6 @@ module decode_stage(
     end
     
     assign valid = valid_i && !cancelled_i && inst_ok && !done && !cancel_save;
-    
-    wire [`I_MAX-1:0] ctrl_sig;
 
     wire [63:0] op_d, func_d;
     wire [31:0] rs_d, rt_d, rd_d, sa_d;
@@ -169,106 +165,18 @@ module decode_stage(
     wire op_swl       = op_d[42];
     wire op_sw        = op_d[43];
     wire op_swr       = op_d[46];
-
-    wire reserved     = !(op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_syscall||op_break||
-                          op_mfhi||op_mthi||op_mflo||op_mtlo||op_mult||op_multu||op_div||op_divu||
-                          op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||
-                          op_bltz||op_bgez||op_bltzal||op_bgezal||op_j||op_jal||op_beq||op_bne||op_blez||op_bgtz||
-                          op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||
-                          op_tlbr||op_tlbwi||op_tlbwr||op_tlbp||op_eret||op_mfc0||op_mtc0||
-                          op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr||op_sb||op_sh||op_swl||op_sw||op_swr);
-
-    // write data to [rt] generated in ex stage
-    wire inst_rt_wex              = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||op_mfc0;
-    // write data to [rt] generated in wb stage
-    wire inst_rt_wwb              = ctrl_sig[`I_MEM_R];
-    // write data to [rd] generated in ex stage
-    wire inst_rd_wex              = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mfhi||op_mflo||
-                                   op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu;
-    // write data to [31] generated in ex stage
-    wire inst_r31_wex             = op_bltzal||op_bgezal||op_jal;
-
-    // alu operation
-    assign ctrl_sig[`I_ALU_ADD]   = op_add||op_addu||op_addi||op_addiu;
-    assign ctrl_sig[`I_ALU_SUB]   = op_sub||op_subu||op_beq||op_bne;
-    assign ctrl_sig[`I_ALU_AND]   = op_and||op_andi;
-    assign ctrl_sig[`I_ALU_OR]    = op_or||op_ori;
-    assign ctrl_sig[`I_ALU_XOR]   = op_xor||op_xori;
-    assign ctrl_sig[`I_ALU_NOR]   = op_nor;
-    assign ctrl_sig[`I_ALU_SLT]   = op_slt||op_slti;
-    assign ctrl_sig[`I_ALU_SLTU]  = op_sltu||op_sltiu;
-    assign ctrl_sig[`I_ALU_SLL]   = op_sll||op_sllv;
-    assign ctrl_sig[`I_ALU_SRL]   = op_srl||op_srlv;
-    assign ctrl_sig[`I_ALU_SRA]   = op_sra||op_srav;
     
-    assign ctrl_sig[`I_RESERVED]  = reserved;
-    
-    assign ctrl_sig[`I_SYSCALL]   = op_syscall;
-    assign ctrl_sig[`I_BREAK]     = op_break;
-    assign ctrl_sig[`I_MFHI]      = op_mfhi;
-    assign ctrl_sig[`I_MTHI]      = op_mthi;
-    assign ctrl_sig[`I_MFLO]      = op_mflo;
-    assign ctrl_sig[`I_MTLO]      = op_mtlo;
-    assign ctrl_sig[`I_LUI]       = op_lui;
-    assign ctrl_sig[`I_TLBR]      = op_tlbr;
-    assign ctrl_sig[`I_TLBWI]     = op_tlbwi;
-    assign ctrl_sig[`I_TLBWR]     = op_tlbwr;
-    assign ctrl_sig[`I_TLBP]      = op_tlbp;
-    assign ctrl_sig[`I_ERET]      = op_eret;
-    assign ctrl_sig[`I_MFC0]      = op_mfc0;
-    assign ctrl_sig[`I_MTC0]      = op_mtc0;
-    assign ctrl_sig[`I_LB]        = op_lb;
-    assign ctrl_sig[`I_LH]        = op_lh;
-    assign ctrl_sig[`I_LWL]       = op_lwl;
-    assign ctrl_sig[`I_LW]        = op_lw;
-    assign ctrl_sig[`I_LBU]       = op_lbu;
-    assign ctrl_sig[`I_LHU]       = op_lhu;
-    assign ctrl_sig[`I_LWR]       = op_lwr;
-    assign ctrl_sig[`I_SB]        = op_sb;
-    assign ctrl_sig[`I_SH]        = op_sh;
-    assign ctrl_sig[`I_SWL]       = op_swl;
-    assign ctrl_sig[`I_SW]        = op_sw;
-    assign ctrl_sig[`I_SWR]       = op_swr;
-    
-    // load instruction
-    assign ctrl_sig[`I_MEM_R]     = op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr;
-    // store instruction
-    assign ctrl_sig[`I_MEM_W]     = op_sb||op_sh||op_swl||op_sw||op_swr;
-
-    // read [rs]
-    assign ctrl_sig[`I_RS_R]      = op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mthi||op_mtlo||op_mult||op_multu||op_div||op_divu||
-                                   op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||
-                                   op_bltz||op_bgez||op_bltzal||op_bgezal||op_beq||op_bne||op_blez||op_bgtz||
-                                   op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||
-                                   ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W];
-    // read [rt]
-    assign ctrl_sig[`I_RT_R]      = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_mult||op_multu||op_div||op_divu||
-                                   op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||
-                                   op_beq||op_bne||op_mtc0||op_lwl||op_lwr||ctrl_sig[`I_MEM_W];
-    // write data generated in ex stage
-    assign ctrl_sig[`I_WEX]       = inst_rt_wex||inst_rd_wex||inst_r31_wex;
-    // write data generated in wb stage
-    assign ctrl_sig[`I_WWB]       = inst_rt_wwb;
-    // imm is sign-extended
-    assign ctrl_sig[`I_IMM_SX]    = !(op_andi||op_ori||op_xori);
-    // alu operand a is sa
-    assign ctrl_sig[`I_ALU_A_SA]  = op_sll||op_srl||op_sra;
-    // alu operand b is imm
-    assign ctrl_sig[`I_ALU_B_IMM] = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W];
-    assign ctrl_sig[`I_LINK]      = op_jal||op_jalr||op_bgezal||op_bltzal;
-    assign ctrl_sig[`I_DO_MUL]    = op_mult||op_multu;
-    assign ctrl_sig[`I_DO_DIV]    = op_div||op_divu;
-    assign ctrl_sig[`I_MD_SIGN]   = op_mult||op_div;
-    assign ctrl_sig[`I_EXC_OF]    = op_add || op_sub || op_addi;
-    
-    assign ctrl_sig[`I_BNE]         = op_bne;
-    assign ctrl_sig[`I_BEQ]         = op_beq;
-    assign ctrl_sig[`I_BGEZ]        = op_bgez || op_bgezal;
-    assign ctrl_sig[`I_BLEZ]        = op_blez;
-    assign ctrl_sig[`I_BGTZ]        = op_bgtz;
-    assign ctrl_sig[`I_BLTZ]        = op_bltz || op_bltzal;
-    assign ctrl_sig[`I_J]           = op_j || op_jal;
-    assign ctrl_sig[`I_JR]          = op_jr || op_jalr;
+    wire [99:0] decoded;
+    assign decoded = {
+        op_sll,op_srl,op_sra,op_sllv,op_srlv,op_srav,
+        op_jr,op_jalr,op_syscall,op_break,
+        op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
+        op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
+        op_bltz,op_bgez,op_bltzal,op_bgezal,op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
+        op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_mfc0,op_mtc0,
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr
+    };
     
     assign rf_raddr1 = `GET_RS(inst);
     assign rf_raddr2 = `GET_RT(inst);
@@ -319,11 +227,9 @@ module decode_stage(
             valid_o     <= 1'b0;
             pc_o        <= 32'd0;
             inst_o      <= 32'd0;
-            ctrl_o      <= `I_MAX'd0;
+            decoded_o   <= 100'd0;
             rdata1_o    <= 32'd0;
             rdata2_o    <= 32'd0;
-            eaddr_o     <= 32'd0;
-            waddr_o     <= 5'd0;
             exc_o       <= 1'b0;
             exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
@@ -333,13 +239,9 @@ module decode_stage(
             valid_o     <= valid_i && done_o && !cancelled_i && !cancel_i && !cancel_save;
             pc_o        <= pc_i;
             inst_o      <= inst;
-            ctrl_o      <= ctrl_sig;
+            decoded_o   <= decoded;
             rdata1_o    <= fwd_rdata1;
             rdata2_o    <= fwd_rdata2;
-            eaddr_o     <= fwd_rdata1 + {{16{imm[15]}}, imm};
-            waddr_o     <= {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst)
-                         | {5{inst_rd_wex}}                 & `GET_RD(inst)
-                         | {5{inst_r31_wex}}                & 5'd31;
             exc_o       <= exc_i;
             exc_miss_o  <= exc_miss_i;
             exccode_o   <= exccode_i;

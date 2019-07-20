@@ -124,71 +124,38 @@
 `define GET_IMM(x)      x[15:0]
 `define GET_INDEX(x) x[25:0]
 
+// ALUop encoding
+
+`define ALU_ADD   0
+`define ALU_SUB   1
+`define ALU_AND   2
+`define ALU_OR    3
+`define ALU_XOR   4
+`define ALU_NOR   5
+`define ALU_SLT   6
+`define ALU_SLTU  7
+`define ALU_SLL   8
+`define ALU_SRL   9
+`define ALU_SRA   10
+
 // Control signal indexes
 
-`define I_ALU_ADD   0
-`define I_ALU_SUB   1
-`define I_ALU_AND   2
-`define I_ALU_OR    3
-`define I_ALU_XOR   4
-`define I_ALU_NOR   5
-`define I_ALU_SLT   6
-`define I_ALU_SLTU  7
-`define I_ALU_SLL   8
-`define I_ALU_SRL   9
-`define I_ALU_SRA   10
+`define I_LB        0
+`define I_LH        1
+`define I_LWL       2
+`define I_LW        3
+`define I_LBU       4
+`define I_LHU       5
+`define I_LWR       6
+`define I_SB        7
+`define I_SH        8
+`define I_SWL       9
+`define I_SW        10
+`define I_SWR       11
 
-`define I_RESERVED  11
+`define I_MEM_R     12
+`define I_MEM_W     13
+`define I_WEX       14
+`define I_WWB       15
 
-`define I_SYSCALL   12
-`define I_BREAK     13
-`define I_MFHI      14
-`define I_MTHI      15
-`define I_MFLO      16
-`define I_MTLO      17
-`define I_LUI       18
-`define I_TLBR      19
-`define I_TLBWI     20
-`define I_TLBWR     21
-`define I_TLBP      22
-`define I_ERET      23
-`define I_MFC0      24
-`define I_MTC0      25
-`define I_LB        26
-`define I_LH        27
-`define I_LWL       28
-`define I_LW        29
-`define I_LBU       30
-`define I_LHU       31
-`define I_LWR       32
-`define I_SB        33
-`define I_SH        34
-`define I_SWL       35
-`define I_SW        36
-`define I_SWR       37
-
-`define I_MEM_R     38
-`define I_MEM_W     39
-`define I_RS_R      40
-`define I_RT_R      41
-`define I_WEX       42
-`define I_WWB       43
-`define I_IMM_SX    44
-`define I_ALU_A_SA  45
-`define I_ALU_B_IMM 46
-`define I_LINK      47
-`define I_DO_MUL    48
-`define I_DO_DIV    49
-`define I_MD_SIGN   50
-`define I_EXC_OF    51
-
-`define I_BNE       52
-`define I_BEQ       53
-`define I_BGEZ      54
-`define I_BLEZ      55
-`define I_BGTZ      56
-`define I_BLTZ      57
-`define I_J         58
-`define I_JR        59
-
-`define I_MAX       60
+`define I_MAX       16

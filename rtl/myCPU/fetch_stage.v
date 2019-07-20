@@ -72,7 +72,7 @@ module fetch_stage(
     
     // pc is saved for tlb lookup
     reg [31:0] pc_save;
-    always @(posedge clk) if (qstate_next == 2'd1) pc_save <= pc_i;
+    always @(posedge clk) /*if (qstate_next == 2'd1)*/ pc_save <= pc_i;
     
     assign tlb_vaddr = pc_save;
     
