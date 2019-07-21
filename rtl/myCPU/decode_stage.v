@@ -60,9 +60,7 @@ module decode_stage(
     output reg                  exc_o,
     output reg                  exc_miss_o,
     output reg [4:0]            exccode_o,
-    output reg                  bd_o,
     input                       cancel_i,
-    output                      cancel_o,
     
     output reg [31:0]           perfcnt_fetch_waitack
 );
@@ -197,8 +195,6 @@ module decode_stage(
     wire [31:0] fwd_rdata2  = fwd_ex_raddr2_hit && ex_fwd_ok ? ex_fwd_data
                             : fwd_wb_raddr2_hit && wb_fwd_ok ? wb_fwd_data
                             : rf_rdata2;
-
-    wire br_inst = op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr;
     
     wire fwd_stall  = fwd_ex_raddr1_hit && !ex_fwd_ok
                    || fwd_ex_raddr2_hit && !ex_fwd_ok
@@ -210,15 +206,6 @@ module decode_stage(
         else if (ready_i) done <= 1'b0;
         else if (valid && done_o) done <= 1'b1;
     end
-
-    // branch delay slot
-    reg prev_branch; // if previous instruction is branch/jump
-    always @(posedge clk) begin
-        if (!resetn) prev_branch <= 1'b0;
-        else if (valid_i && done_o && ready_i) prev_branch <= br_inst && !(valid_i && exc_i) && !cancelled_i && !cancel_i && !cancel_save;
-    end
-    
-    assign cancel_o = 1'b0; ///////////////
     
     assign done_o = inst_ok && (!fwd_stall || cancelled_i) || exc_i;
     
@@ -241,7 +228,6 @@ module decode_stage(
             exc_o       <= 1'b0;
             exc_miss_o  <= 1'b0;
             exccode_o   <= 5'd0;
-            bd_o        <= 1'b0;
         end
         else if (ready_i) begin
             valid_o     <= valid_i && done_o && !cancelled_i && !cancel_i && !cancel_save;
@@ -255,7 +241,6 @@ module decode_stage(
             exc_o       <= exc_i;
             exc_miss_o  <= exc_miss_i;
             exccode_o   <= exccode_i;
-            bd_o        <= prev_branch;
         end
     end
     

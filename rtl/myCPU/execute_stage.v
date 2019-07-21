@@ -72,7 +72,6 @@ module execute_stage(
     input                       exc_i,
     input                       exc_miss_i,
     input   [4 :0]              exccode_i,
-    input                       bd_i,
     output                      commit,
     output                      commit_miss,
     output  [4 :0]              commit_code,
@@ -418,6 +417,15 @@ module execute_stage(
         else if (valid_i && done_o) done <= 1'b1;
     end
 
+    wire br_inst = op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr;
+
+    // branch delay slot
+    reg prev_branch; // if previous instruction is branch/jump
+    always @(posedge clk) begin
+        if (!resetn) prev_branch <= 1'b0;
+        else if (valid_i && done_o && ready_i) prev_branch <= br_inst && !(valid_i && exc_i);
+    end
+
     // exceptions
     wire exc = int_sig || reserved
             || op_syscall || op_break || op_eret
@@ -438,8 +446,8 @@ module execute_stage(
     assign commit_miss = valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
-    assign commit_bd = bd_i;
-    assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
+    assign commit_bd = prev_branch;
+    assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;
     assign commit_bvaddr = exc_i ? pc_i : eaddr;
     assign commit_eret = op_eret;
     
