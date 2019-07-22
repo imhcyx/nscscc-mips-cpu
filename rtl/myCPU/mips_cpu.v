@@ -134,8 +134,6 @@ module mips_cpu(
     wire if_id_cancelled, if_id_exc, if_id_exc_miss;
     wire [4:0] if_id_exccode;
     
-    wire id_cancel;
-    
     wire branch;
     wire [31:0] branch_pc;
     
@@ -152,14 +150,7 @@ module mips_cpu(
         else pc <= if_pc;
     end
     
-    reg if_valid_r;
-    always @(posedge clk) begin
-        if (!resetn) if_valid_r <= 1'b1;
-        else if (commit) if_valid_r <= 1'b1;
-        else if (id_cancel) if_valid_r <= 1'b0;
-    end
-    
-    assign if_valid = if_valid_r; // && !id_cancel && !commit;
+    assign if_valid = 1'b1;
     
     assign if_pc = branch ? branch_pc : pc;
     
@@ -187,7 +178,6 @@ module mips_cpu(
         .exc_o          (if_id_exc),
         .exc_miss_o     (if_id_exc_miss),
         .exccode_o      (if_id_exccode),
-        .cancel_i       (id_cancel||commit),
         .commit_i       (commit)
     );
     
@@ -215,8 +205,8 @@ module mips_cpu(
     wire id_ex_valid, ex_id_ready, id_done;
     wire [31:0] id_ex_pc, id_ex_inst;
     wire [99:0] id_ex_decoded;
-    wire [31:0] id_ex_rdata1, id_ex_rdata2;
-    wire id_ex_exc, id_ex_exc_miss, id_ex_bd;
+    wire [31:0] id_ex_rdata1, id_ex_rdata2, id_ex_pc_j, id_ex_pc_b;
+    wire id_ex_exc, id_ex_exc_miss;
     wire [4:0] id_ex_exccode;
     
     decode_stage decode(
@@ -245,15 +235,15 @@ module mips_cpu(
         .decoded_o      (id_ex_decoded),
         .rdata1_o       (id_ex_rdata1),
         .rdata2_o       (id_ex_rdata2),
+        .pc_j_o         (id_ex_pc_j),
+        .pc_b_o         (id_ex_pc_b),
         .exc_i          (if_id_exc),
         .exc_miss_i     (if_id_exc_miss),
         .exccode_i      (if_id_exccode),
         .exc_o          (id_ex_exc),
         .exc_miss_o     (id_ex_exc_miss),
         .exccode_o      (id_ex_exccode),
-        .bd_o           (id_ex_bd),
-        .cancel_i       (commit),
-        .cancel_o       (id_cancel)
+        .cancel_i       (commit)
     );
     
     //////////////////// EX ////////////////////
@@ -304,6 +294,8 @@ module mips_cpu(
         .decoded_i      (id_ex_decoded),
         .rdata1_i       (id_ex_rdata1),
         .rdata2_i       (id_ex_rdata2),
+        .pc_j_i         (id_ex_pc_j),
+        .pc_b_i         (id_ex_pc_b),
         .ready_i        (wb_ex_ready),
         .valid_o        (ex_wb_valid),
         .pc_o           (ex_wb_pc),
@@ -316,7 +308,6 @@ module mips_cpu(
         .exc_i          (id_ex_exc),
         .exc_miss_i     (id_ex_exc_miss),
         .exccode_i      (id_ex_exccode),
-        .bd_i           (id_ex_bd),
         .commit         (commit),
         .commit_miss    (commit_miss),
         .commit_code    (commit_code),

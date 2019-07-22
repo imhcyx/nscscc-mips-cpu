@@ -32,7 +32,6 @@ module fetch_stage(
     output reg          exc_o,
     output reg          exc_miss_o,
     output reg [4:0]    exccode_o,
-    input               cancel_i,
     input               commit_i,
     
     output reg [31:0]   perfcnt_fetch_waitreq
@@ -58,7 +57,7 @@ module fetch_stage(
     end
     
     always @(*) begin
-        if (cancel_i)   qstate_next = 2'd0;
+        if (commit_i)   qstate_next = 2'd0;
         else begin
             case (qstate)
             // wait for ready_i before tlb lookup because pc_i might be changed by branch/jump instructions
@@ -78,7 +77,7 @@ module fetch_stage(
     
     always @(posedge clk) begin
         if (!resetn) tlbc_valid <= 1'b0;
-        else if (tlb_write || cancel_i) tlbc_valid <= 1'b0;
+        else if (tlb_write || commit_i) tlbc_valid <= 1'b0;
         else if (qstate == 2'd1) tlbc_valid <= 1'b1;
     end
     
@@ -108,16 +107,6 @@ module fetch_stage(
     
     assign ready_o      = ready_i && (inst_addr_ok || if_req_exc);
     
-    // cancel_save saves the cancel_i to indicate an instruction is cancelled
-    // we have to wait for the response even though an instruction is cancelled since the bus does not support cancellation
-    // only a valid instruction in IF_wait can be cancelled
-    reg cancel_save;
-    always @(posedge clk) begin
-        if (!resetn) cancel_save <= 1'b0;
-        else if (ready_i || commit_i) cancel_save <= 1'b0;
-        else if (cancel_i && valid_i) cancel_save <= 1'b1;
-    end
-    
     // Note: exception in IF_req must be passwd to ID after the instruction in IF_wait has been passed to ID
     always @(posedge clk) begin
         if (!resetn) begin
@@ -131,7 +120,7 @@ module fetch_stage(
         else if (ready_i) begin
             valid_o     <= valid_i && inst_addr_ok || if_req_exc;
             pc_o        <= qstate == 2'd0 ? pc_i : pc_save;
-            cancelled_o <= cancel_i || cancel_save;
+            cancelled_o <= commit_i;
             exc_o       <= if_req_exc;
             exc_miss_o  <= (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss;
             exccode_o   <= if_adel ? `EXC_ADEL : `EXC_TLBL;

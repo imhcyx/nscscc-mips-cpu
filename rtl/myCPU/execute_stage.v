@@ -56,6 +56,8 @@ module execute_stage(
     input   [99:0]              decoded_i,
     input   [31:0]              rdata1_i,
     input   [31:0]              rdata2_i,
+    input   [31:0]              pc_j_i,
+    input   [31:0]              pc_b_i,
     input                       ready_i,
     output reg                  valid_o,
     output reg [31:0]           pc_o,
@@ -70,7 +72,6 @@ module execute_stage(
     input                       exc_i,
     input                       exc_miss_i,
     input   [4 :0]              exccode_i,
-    input                       bd_i,
     output                      commit,
     output                      commit_miss,
     output  [4 :0]              commit_code,
@@ -287,14 +288,10 @@ module execute_stage(
                        || (do_bltz && rdata1_i[31]);
 
     assign branch       = valid && branch_ready && (do_j||do_jr||branch_taken); // && done_o
-
-    wire [31:0] seq_pc = pc_i + 32'd4;
-    wire [31:0] pc_branch = seq_pc + {{14{imm[15]}}, imm, 2'd0};
-    wire [31:0] pc_jump = {seq_pc[31:28], `GET_INDEX(inst_i), 2'd0};
-
-    assign target_pc    = {32{!(do_j||do_jr)}} & pc_branch
+    
+    assign target_pc    = {32{!(do_j||do_jr)}} & pc_b_i
                         | {32{do_jr}} & rdata1_i
-                        | {32{do_j}} & pc_jump;
+                        | {32{do_j}} & pc_j_i;
     
     // mtc0/mfc0
     assign cp0_w = valid && op_mtc0;
@@ -420,6 +417,15 @@ module execute_stage(
         else if (valid_i && done_o) done <= 1'b1;
     end
 
+    wire br_inst = op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr;
+
+    // branch delay slot
+    reg prev_branch; // if previous instruction is branch/jump
+    always @(posedge clk) begin
+        if (!resetn) prev_branch <= 1'b0;
+        else if (valid_i && done_o && ready_i) prev_branch <= br_inst && !(valid_i && exc_i);
+    end
+
     // exceptions
     wire exc = int_sig || reserved
             || op_syscall || op_break || op_eret
@@ -440,8 +446,8 @@ module execute_stage(
     assign commit_miss = valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
-    assign commit_bd = bd_i;
-    assign commit_epc = bd_i ? pc_i - 32'd4 : pc_i;
+    assign commit_bd = prev_branch;
+    assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;
     assign commit_bvaddr = exc_i ? pc_i : eaddr;
     assign commit_eret = op_eret;
     
