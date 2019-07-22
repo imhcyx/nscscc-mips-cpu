@@ -130,8 +130,12 @@ module decode_stage(
     wire op_sltu      = op_d[0] && sa_d[0] && func_d[43];
     wire op_bltz      = op_d[1] && rt_d[0];
     wire op_bgez      = op_d[1] && rt_d[1];
+    wire op_bltzl     = op_d[1] && rt_d[2];
+    wire op_bgezl     = op_d[1] && rt_d[3];
     wire op_bltzal    = op_d[1] && rt_d[16];
     wire op_bgezal    = op_d[1] && rt_d[17];
+    wire op_bltzall   = op_d[1] && rt_d[18];
+    wire op_bgezall   = op_d[1] && rt_d[19];
     wire op_j         = op_d[2];
     wire op_jal       = op_d[3];
     wire op_beq       = op_d[4];
@@ -153,6 +157,10 @@ module decode_stage(
     wire op_eret      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[24];
     wire op_mfc0      = op_d[16] && rs_d[0] && sa_d[0] && inst[5:3] == 3'b000;
     wire op_mtc0      = op_d[16] && rs_d[4] && sa_d[0] && inst[5:3] == 3'b000;
+    wire op_beql      = op_d[20];
+    wire op_bnel      = op_d[21];
+    wire op_blezl     = op_d[22] && rt_d[0];
+    wire op_bgtzl     = op_d[23] && rt_d[0];
     wire op_lb        = op_d[32];
     wire op_lh        = op_d[33];
     wire op_lwl       = op_d[34];
@@ -172,7 +180,9 @@ module decode_stage(
         op_jr,op_jalr,op_syscall,op_break,
         op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
         op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_bltz,op_bgez,op_bltzal,op_bgezal,op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_bltz,op_bgez,op_bltzl,op_bgezl,op_bltzal,op_bgezal,op_bltzall,op_bgezall,
+        op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_mfc0,op_mtc0,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr

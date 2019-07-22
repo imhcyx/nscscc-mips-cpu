@@ -96,7 +96,9 @@ module execute_stage(
         op_jr,op_jalr,op_syscall,op_break,
         op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
         op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_bltz,op_bgez,op_bltzal,op_bgezal,op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_bltz,op_bgez,op_bltzl,op_bgezl,op_bltzal,op_bgezal,op_bltzall,op_bgezall,
+        op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_mfc0,op_mtc0,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr
@@ -107,7 +109,9 @@ module execute_stage(
         op_jr,op_jalr,op_syscall,op_break,
         op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
         op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_bltz,op_bgez,op_bltzal,op_bgezal,op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_bltz,op_bgez,op_bltzl,op_bgezl,op_bltzal,op_bgezal,op_bltzall,op_bgezall,
+        op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
+        op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_mfc0,op_mtc0,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr
@@ -125,7 +129,7 @@ module execute_stage(
     wire inst_rd_wex              = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mfhi||op_mflo||
                                    op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu;
     // write data to [31] generated in ex stage
-    wire inst_r31_wex             = op_bltzal||op_bgezal||op_jal;
+    wire inst_r31_wex             = op_bltzal||op_bgezal||op_bltzall||op_bgezall||op_jal;
     
     assign ctrl_sig[`I_LB]        = op_lb;
     assign ctrl_sig[`I_LH]        = op_lh;
@@ -148,13 +152,14 @@ module execute_stage(
     // read [rs]
     wire read_rs    = op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mthi||op_mtlo||op_mult||op_multu||op_div||op_divu
                     ||op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu
-                    ||op_bltz||op_bgez||op_bltzal||op_bgezal||op_beq||op_bne||op_blez||op_bgtz
+                    ||op_bltz||op_bgez||op_bltzl||op_bgezl||op_bltzal||op_bgezal||op_bltzall||op_bgezall
+                    ||op_beq||op_bne||op_blez||op_bgtz||op_beql||op_bnel||op_blezl||op_bgtzl
                     ||op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori
                     ||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W];
     // read [rt]
     wire read_rt    = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_mult||op_multu||op_div||op_divu
                     ||op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu
-                    ||op_beq||op_bne||op_mtc0||op_lwl||op_lwr||ctrl_sig[`I_MEM_W];
+                    ||op_beq||op_bne||op_beql||op_bnel||op_mtc0||op_lwl||op_lwr||ctrl_sig[`I_MEM_W];
     // write data generated in ex stage
     assign ctrl_sig[`I_WEX]       = inst_rt_wex||inst_rd_wex||inst_r31_wex;
     // write data generated in wb stage
@@ -165,17 +170,17 @@ module execute_stage(
     wire alu_a_sa   = op_sll||op_srl||op_sra;
     // alu operand b is imm
     wire alu_b_imm  = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W];
-    wire do_link    = op_jal||op_jalr||op_bgezal||op_bltzal;
+    wire do_link    = op_jal||op_jalr||op_bgezal||op_bltzal||op_bgezall||op_bltzall;
     wire exc_on_of  = op_add || op_sub || op_addi;
     
-    wire do_bne     = op_bne;
-    wire do_beq     = op_beq;
-    wire do_bgez    = op_bgez || op_bgezal;
-    wire do_blez    = op_blez;
-    wire do_bgtz    = op_bgtz;
-    wire do_bltz    = op_bltz || op_bltzal;
-    wire do_j       = op_j || op_jal;
-    wire do_jr      = op_jr || op_jalr;
+    wire do_bne     = op_bne||op_bnel;
+    wire do_beq     = op_beq||op_beql;
+    wire do_bgez    = op_bgez||op_bgezl||op_bgezal||op_bgezall;
+    wire do_blez    = op_blez||op_blezl;
+    wire do_bgtz    = op_bgtz||op_bgtzl;
+    wire do_bltz    = op_bltz||op_bltzl||op_bltzal||op_bltzall;
+    wire do_j       = op_j||op_jal;
+    wire do_jr      = op_jr||op_jalr;
     
     wire [4:0] waddr = {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                      | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
@@ -190,7 +195,7 @@ module execute_stage(
     // ALU operation
     wire [10:0] alu_op;
     assign alu_op[`ALU_ADD]   = op_add||op_addu||op_addi||op_addiu;
-    assign alu_op[`ALU_SUB]   = op_sub||op_subu||op_beq||op_bne;
+    assign alu_op[`ALU_SUB]   = op_sub||op_subu;
     assign alu_op[`ALU_AND]   = op_and||op_andi;
     assign alu_op[`ALU_OR]    = op_or||op_ori;
     assign alu_op[`ALU_XOR]   = op_xor||op_xori;
@@ -417,7 +422,8 @@ module execute_stage(
         else if (valid_i && done_o) done <= 1'b1;
     end
 
-    wire br_inst = op_bne||op_beq||op_bgez||op_bgezal||op_blez||op_bgtz||op_bltz||op_bltzal||op_j||op_jr||op_jal||op_jalr;
+    wire br_inst = op_jr||op_jalr||op_bltz||op_bgez||op_bltzl||op_bgezl||op_bltzal||op_bgezal||op_bltzall||op_bgezall
+                ||op_j||op_jal||op_beq||op_bne||op_blez||op_bgtz||op_beql||op_bnel||op_blezl||op_bgtzl;
 
     // branch delay slot
     reg prev_branch; // if previous instruction is branch/jump
