@@ -199,11 +199,11 @@ module decode_stage(
     wire fwd_wb_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
     wire fwd_wb_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
     
-    wire [31:0] fwd_rdata1  = fwd_ex_raddr1_hit && ex_fwd_ok ? ex_fwd_data
-                            : fwd_wb_raddr1_hit && wb_fwd_ok ? wb_fwd_data
+    wire [31:0] fwd_rdata1  = fwd_ex_raddr1_hit ? ex_fwd_data
+                            : fwd_wb_raddr1_hit ? wb_fwd_data
                             : rf_rdata1;
-    wire [31:0] fwd_rdata2  = fwd_ex_raddr2_hit && ex_fwd_ok ? ex_fwd_data
-                            : fwd_wb_raddr2_hit && wb_fwd_ok ? wb_fwd_data
+    wire [31:0] fwd_rdata2  = fwd_ex_raddr2_hit ? ex_fwd_data
+                            : fwd_wb_raddr2_hit ? wb_fwd_data
                             : rf_rdata2;
     
     wire fwd_stall  = fwd_ex_raddr1_hit && !ex_fwd_ok

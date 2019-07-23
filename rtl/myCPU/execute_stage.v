@@ -408,8 +408,8 @@ module execute_stage(
         {32{ctrl_sig[`I_SWL]}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
         {32{ctrl_sig[`I_SWR]}} & (rdata2_i << (8 * mem_byte_offset));
     
-    assign data_addr = qstate == 2'd0 ? (tlbc_hit ? {tlbc_paddr_hi, ea_aligned[11:0]} : {3'd0, ea_aligned[28:0]})
-                     : {tlbc_paddr_hi, ea_aligned_save[11:0]};
+    assign data_addr[31:12] = (qstate == 2'd0 && kseg01) ? {3'd0, ea_aligned[28:12]} : tlbc_paddr_hi;
+    assign data_addr[11:0]  = qstate == 2'd0 ? ea_aligned[11:0] : ea_aligned_save[11:0];
     
     assign data_size =
         {3{ctrl_sig[`I_SW]||ctrl_sig[`I_SWL]||ctrl_sig[`I_SWR]||ctrl_sig[`I_LW]||ctrl_sig[`I_LWL]||ctrl_sig[`I_LWR]}} & 3'd2 |
