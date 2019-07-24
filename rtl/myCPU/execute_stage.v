@@ -96,7 +96,8 @@ module execute_stage(
         op_jr,op_jalr,op_syscall,op_break,
         op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
         op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_bltz,op_bgez,op_bltzl,op_bgezl,op_bltzal,op_bgezal,op_bltzall,op_bgezall,
+        op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
+        op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
@@ -109,7 +110,8 @@ module execute_stage(
         op_jr,op_jalr,op_syscall,op_break,
         op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
         op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_bltz,op_bgez,op_bltzl,op_bgezl,op_bltzal,op_bgezal,op_bltzall,op_bgezall,
+        op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
+        op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
@@ -127,7 +129,7 @@ module execute_stage(
     wire inst_rt_wwb              = ctrl_sig[`I_MEM_R];
     // write data to [rd] generated in ex stage
     wire inst_rd_wex              = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mfhi||op_mflo||
-                                   op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu;
+                                    op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu;
     // write data to [31] generated in ex stage
     wire inst_r31_wex             = op_bltzal||op_bgezal||op_bltzall||op_bgezall||op_jal;
     
@@ -148,18 +150,6 @@ module execute_stage(
     assign ctrl_sig[`I_MEM_R]     = op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr;
     // store instruction
     assign ctrl_sig[`I_MEM_W]     = op_sb||op_sh||op_swl||op_sw||op_swr;
-
-    // read [rs]
-    wire read_rs    = op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mthi||op_mtlo||op_mult||op_multu||op_div||op_divu
-                    ||op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu
-                    ||op_bltz||op_bgez||op_bltzl||op_bgezl||op_bltzal||op_bgezal||op_bltzall||op_bgezall
-                    ||op_beq||op_bne||op_blez||op_bgtz||op_beql||op_bnel||op_blezl||op_bgtzl
-                    ||op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori
-                    ||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W];
-    // read [rt]
-    wire read_rt    = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_mult||op_multu||op_div||op_divu
-                    ||op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu
-                    ||op_beq||op_bne||op_beql||op_bnel||op_mtc0||op_lwl||op_lwr||ctrl_sig[`I_MEM_W];
     // write data generated in ex stage
     assign ctrl_sig[`I_WEX]       = inst_rt_wex||inst_rd_wex||inst_r31_wex;
     // write data generated in wb stage
@@ -222,6 +212,32 @@ module execute_stage(
     // select operand sources
     assign alu_a = alu_a_sa ? {27'd0, `GET_SA(inst_i)} : rdata1_i;
     assign alu_b = alu_b_imm ? imm_32 : rdata2_i;
+    
+    wire alu_of_exc = exc_on_of && alu_of;
+    
+    // trap test
+    wire trap_b_imm = op_tgei||op_tgeiu||op_tlti||op_tltiu||op_teqi||op_tnei;
+    wire [31:0] trap_a = rdata1_i;
+    wire [31:0] trap_b = trap_b_imm ? imm_sx : rdata2_i;
+    wire [32:0] trap_res = trap_a - trap_b;
+    wire trap_ge    = ~(trap_a[31] ^ trap_b[31] ^ trap_res[32]);
+    wire trap_geu   = ~trap_res[32];
+    wire trap_lt    = trap_a[31] ^ trap_b[31] ^ trap_res[32];
+    wire trap_ltu   = trap_res[32];
+    wire trap_eq    = ~|(trap_a ^ trap_b);
+    wire trap_ne    = |(trap_a ^ trap_b);
+    wire trap       = op_tge && trap_ge
+                   || op_tgei && trap_ge
+                   || op_tgeu && trap_geu
+                   || op_tgeiu && trap_geu
+                   || op_tlt && trap_lt
+                   || op_tlti && trap_lt
+                   || op_tltu && trap_ltu
+                   || op_tltiu && trap_ltu
+                   || op_teq && trap_eq
+                   || op_teqi && trap_eq
+                   || op_tne && trap_ne
+                   || op_tnei && trap_ne;
 
     // multiplication
     // the multiplier is divided into 3 stages
@@ -257,8 +273,6 @@ module execute_stage(
         .complete(div_complete),
         .cancel((op_mult||op_multu) && valid)
     );
-    
-    wire alu_of_exc = exc_on_of && alu_of;
     
     reg muldiv; // mul or div in progreses
     always @(posedge clk) begin
@@ -434,7 +448,7 @@ module execute_stage(
 
     // exceptions
     wire exc = int_sig || reserved
-            || op_syscall || op_break || op_eret
+            || op_syscall || op_break || op_eret || trap
             || alu_of_exc || mem_adel || mem_ades
             || valid_i && (tlbl || tlbs || tlbm);
 
@@ -442,6 +456,7 @@ module execute_stage(
                        | {5{reserved}} & `EXC_RI
                        | {5{op_syscall}} & `EXC_SYS
                        | {5{op_break}} & `EXC_BP
+                       | {5{trap}} & `EXC_TR
                        | {5{alu_of_exc}} & `EXC_OV
                        | {5{mem_adel}} & `EXC_ADEL
                        | {5{mem_ades}} & `EXC_ADES
