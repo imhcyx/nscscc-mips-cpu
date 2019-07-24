@@ -108,6 +108,8 @@ module decode_stage(
     wire op_srav      = op_d[0] && sa_d[0] && func_d[7];
     wire op_jr        = op_d[0] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[8];
     wire op_jalr      = op_d[0] && rt_d[0] && sa_d[0] && func_d[9];
+    wire op_movz      = op_d[0] && sa_d[0] && func_d[10];
+    wire op_movn      = op_d[0] && sa_d[0] && func_d[11];
     wire op_syscall   = op_d[0] && func_d[12];
     wire op_break     = op_d[0] && func_d[13];
     wire op_mfhi      = op_d[0] && rs_d[0] && rt_d[0] && sa_d[0] && func_d[16];
@@ -162,13 +164,13 @@ module decode_stage(
     wire op_ori       = op_d[13];
     wire op_xori      = op_d[14];
     wire op_lui       = op_d[15];
+    wire op_mfc0      = op_d[16] && rs_d[0] && sa_d[0] && inst[5:3] == 3'b000;
+    wire op_mtc0      = op_d[16] && rs_d[4] && sa_d[0] && inst[5:3] == 3'b000;
     wire op_tlbr      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[1];
     wire op_tlbwi     = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[2];
     wire op_tlbwr     = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[6];
     wire op_tlbp      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[8];
     wire op_eret      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[24];
-    wire op_mfc0      = op_d[16] && rs_d[0] && sa_d[0] && inst[5:3] == 3'b000;
-    wire op_mtc0      = op_d[16] && rs_d[4] && sa_d[0] && inst[5:3] == 3'b000;
     wire op_beql      = op_d[20];
     wire op_bnel      = op_d[21];
     wire op_blezl     = op_d[22] && rt_d[0];
@@ -189,7 +191,7 @@ module decode_stage(
     wire [99:0] decoded;
     assign decoded = {
         op_sll,op_srl,op_sra,op_sllv,op_srlv,op_srav,
-        op_jr,op_jalr,op_syscall,op_break,
+        op_jr,op_jalr,op_movz, op_movn, op_syscall,op_break,
         op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
         op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
         op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
@@ -197,7 +199,7 @@ module decode_stage(
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
-        op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_mfc0,op_mtc0,
+        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr
     };
     
