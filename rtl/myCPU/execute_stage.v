@@ -102,7 +102,7 @@ module execute_stage(
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
         op_beql,op_bnel,op_blezl,op_bgtzl,
-        op_clz,op_clo,
+        op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
     ;
     
@@ -117,7 +117,7 @@ module execute_stage(
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
         op_beql,op_bnel,op_blezl,op_bgtzl,
-        op_clz,op_clo,
+        op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
     } = decoded_i;
     
@@ -133,7 +133,7 @@ module execute_stage(
     wire inst_rt_wwb              = ctrl_sig[`I_MEM_R];
     // write data to [rd] generated in ex stage
     wire inst_rd_wex              = op_sll||op_srl||op_sra||op_sllv||op_srlv||op_srav||op_jr||op_jalr||op_mfhi||op_mflo||
-                                    op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||cond_move;
+                                    op_add||op_addu||op_sub||op_subu||op_and||op_or||op_xor||op_nor||op_slt||op_sltu||op_mul||cond_move;
     // write data to [31] generated in ex stage
     wire inst_r31_wex             = op_bltzal||op_bgezal||op_bltzall||op_bgezall||op_jal;
     
@@ -243,20 +243,35 @@ module execute_stage(
                    || op_tne && trap_ne
                    || op_tnei && trap_ne;
 
+    reg muldiv; // async mul or div in progreses
+    
     // multiplication
     // the multiplier is divided into 3 stages
     wire [63:0] mul_res;
     reg [1:0] mul_flag;
+    reg [2:0] maddsub_flag;
+    reg maddsub;
+    reg mul_start;
     always @(posedge clk) begin
         if (!resetn) mul_flag <= 2'b00;
         else if ((op_div||op_divu) && valid) mul_flag <= 2'b00;
-        else mul_flag <= {mul_flag[0], (op_mult||op_multu) && valid};
+        else mul_flag <= {mul_flag[0], (op_mult||op_multu||op_mul) && valid && !mul_start};
+        
+        if (!resetn) maddsub_flag <= 3'b000;
+        else if ((op_div||op_divu||op_mult||op_multu) && valid) maddsub_flag <= 3'b000;
+        else maddsub_flag <= {maddsub_flag[1:0], (op_madd||op_maddu||op_msub||op_msubu) && valid && !mul_start && !muldiv};
+        
+        if (op_madd||op_maddu||op_msub||op_msubu) maddsub <= op_madd||op_maddu;
+        
+        if (!resetn) mul_start <= 1'b0;
+        else if (done_o && ready_i) mul_start <= 1'b0;
+        else if ((op_mult||op_multu||op_mul||!muldiv&&(op_madd||op_maddu||op_msub||op_msubu)) && valid) mul_start <= 1'b1;
     end
     
     mul u_mul(
         .mul_clk(clk),
         .resetn(resetn),
-        .mul_signed(op_mult),
+        .mul_signed(op_mult||op_mul||op_madd||op_msub),
         .x(rdata1_i),
         .y(rdata2_i),
         .result(mul_res)
@@ -278,19 +293,24 @@ module execute_stage(
         .cancel((op_mult||op_multu) && valid)
     );
     
-    reg muldiv; // mul or div in progreses
     always @(posedge clk) begin
         if (!resetn) muldiv <= 1'b0;
-        else if (mul_flag[1] || div_complete) muldiv <= 1'b0;
-        else if ((op_mult||op_multu||op_div||op_divu) && valid) muldiv <= 1'b1;
+        else if (mul_flag[1] || maddsub_flag[2] || div_complete) muldiv <= 1'b0;
+        else if ((op_mult||op_multu||op_div||op_divu||op_madd||op_maddu||op_msub||op_msubu) && valid) muldiv <= 1'b1;
     end
+    
+    reg [63:0] maddsub_temp;
+    always @(posedge clk) if (maddsub_flag[1]) maddsub_temp <= mul_res;
     
     // HI/LO registers
     reg [31:0] hi, lo;
     always @(posedge clk) begin
-        if (mul_flag[1]) begin
+        if (mul_flag[1] && !op_mul) begin
             hi <= mul_res[63:32];
             lo <= mul_res[31:0];
+        end
+        else if (maddsub_flag[2]) begin
+            {hi, lo} <= maddsub ? {hi, lo} + maddsub_temp : {hi, lo} - maddsub_temp;
         end
         else if (div_complete) begin
             hi <= div_r;
@@ -310,9 +330,8 @@ module execute_stage(
     
     always @(posedge clk) begin
         if (!resetn) clo_start <= 1'b0;
+        else if (done_o && ready_i) clo_start <= 1'b0;
         else if (valid && do_cloz) clo_start <= 1'b1;
-        else if (ready_i) clo_start <= 1'b0;
-        else if (clo_data[31]) clo_start <= 1'b0;
         
         if (!resetn) clo_cnt <= 5'd0;
         else if (valid && do_cloz && !clo_start) clo_cnt <= 5'd0;
@@ -503,11 +522,12 @@ module execute_stage(
     assign commit_bvaddr = exc_i ? pc_i : eaddr;
     assign commit_eret = op_eret;
     
-    wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo) && !muldiv
+    wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu) && !muldiv
                     ||  (do_j||do_jr||branch_taken) && branch_ready
+                    ||  (op_mul) && mul_flag[1]
                     ||  (do_cloz) && cloz_ok
-                    || !(op_mfhi||op_mflo||op_mthi||op_mtlo||
-                         do_j||do_jr||branch_taken||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));
+                    || !(op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu||
+                         do_j||do_jr||branch_taken||op_mul||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));
     assign done_o   = done_nonmem
                    || (ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]) && (data_addr_ok)
                    || exc_i || exc;
@@ -519,6 +539,7 @@ module execute_stage(
                     | {32{do_link}} & (pc_i + 32'd8)
                     | {32{op_mfc0}} & cp0_rdata
                     | {32{op_movz||op_movn}} & rdata1_i
+                    | {32{op_mul}} & mul_res[31:0]
                     | {32{do_cloz}} & clo_result
                     | {32{!(op_mfhi||op_mflo||op_lui||do_link||op_mfc0||op_movz||op_movn)}} & alu_res_wire;
 
