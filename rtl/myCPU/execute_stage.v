@@ -99,9 +99,10 @@ module execute_stage(
         op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
         op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
-        op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
+        op_beql,op_bnel,op_blezl,op_bgtzl,
+        op_clz,op_clo,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
     ;
     
@@ -113,9 +114,10 @@ module execute_stage(
         op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
         op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
-        op_beql,op_bnel,op_blezl,op_bgtzl,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
+        op_beql,op_bnel,op_blezl,op_bgtzl,
+        op_clz,op_clo,
         op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
     } = decoded_i;
     
@@ -126,7 +128,7 @@ module execute_stage(
     // conditional move
     wire cond_move                = op_movz && rdata2_i == 32'd0 || op_movn && rdata2_i != 32'd0;
     // write data to [rt] generated in ex stage
-    wire inst_rt_wex              = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||op_mfc0;
+    wire inst_rt_wex              = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||op_mfc0||op_clz||op_clo;
     // write data to [rt] generated in wb stage
     wire inst_rt_wwb              = ctrl_sig[`I_MEM_R];
     // write data to [rd] generated in ex stage
@@ -299,6 +301,33 @@ module execute_stage(
             if (valid && op_mtlo) lo <= rdata1_i;
         end
     end
+    
+    // clz/clo
+    reg clo_start;
+    reg [31:0] clo_data, clo_result;
+    reg [4 :0] clo_cnt;
+    wire do_cloz = op_clo||op_clz;
+    
+    always @(posedge clk) begin
+        if (!resetn) clo_start <= 1'b0;
+        else if (valid && do_cloz) clo_start <= 1'b1;
+        else if (ready_i) clo_start <= 1'b0;
+        else if (clo_data[31]) clo_start <= 1'b0;
+        
+        if (!resetn) clo_cnt <= 5'd0;
+        else if (valid && do_cloz && !clo_start) clo_cnt <= 5'd0;
+        else if (clo_start) clo_cnt <= clo_cnt + 5'd1;
+        
+        if (!resetn) clo_data <= 32'd0;
+        else if (valid && do_cloz && !clo_start) clo_data <= op_clo ? rdata1_i : ~rdata1_i;
+        else if (clo_start) clo_data <= clo_data << 1;
+        
+        if (!resetn) clo_result <= 32'd0;
+        else if (valid && do_cloz && !clo_start) clo_result <= 32'd0;
+        else if (clo_start && clo_data[31]) clo_result <= clo_result + 32'd1;
+    end
+    
+    wire cloz_ok = clo_start && ~clo_data[31];
     
     // branch test
     wire branch_taken   = (do_bne && (rdata1_i != rdata2_i))
@@ -476,8 +505,9 @@ module execute_stage(
     
     wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo) && !muldiv
                     ||  (do_j||do_jr||branch_taken) && branch_ready
+                    ||  (do_cloz) && cloz_ok
                     || !(op_mfhi||op_mflo||op_mthi||op_mtlo||
-                         do_j||do_jr||branch_taken||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));
+                         do_j||do_jr||branch_taken||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));
     assign done_o   = done_nonmem
                    || (ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]) && (data_addr_ok)
                    || exc_i || exc;
@@ -489,6 +519,7 @@ module execute_stage(
                     | {32{do_link}} & (pc_i + 32'd8)
                     | {32{op_mfc0}} & cp0_rdata
                     | {32{op_movz||op_movn}} & rdata1_i
+                    | {32{do_cloz}} & clo_result
                     | {32{!(op_mfhi||op_mflo||op_lui||do_link||op_mfc0||op_movz||op_movn)}} & alu_res_wire;
 
     assign fwd_ok   = valid && done_nonmem && ready_i && ctrl_sig[`I_WEX];
