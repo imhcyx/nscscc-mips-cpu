@@ -44,7 +44,7 @@ module mips_cpu(
     
     wire [31:0] cp0_index, cp0_random, cp0_entrylo0, cp0_entrylo1, cp0_entryhi;
     wire [11:0] cp0_mask;
-    wire [31:0] cp0_status, cp0_cause, cp0_epc, cp0_ebase;
+    wire [31:0] cp0_status, cp0_cause, cp0_epc;
     wire [2:0] config_k0;
     
     wire tlbr, tlbwi, tlbwr, tlbp;
@@ -83,7 +83,6 @@ module mips_cpu(
         .status         (cp0_status),
         .cause          (cp0_cause),
         .epc            (cp0_epc),
-        .ebase          (cp0_ebase),
         .config_k0      (config_k0)
     );
     

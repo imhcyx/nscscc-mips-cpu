@@ -15,7 +15,6 @@
 `define CP0_CAUSE           8'b01101_000 // 13, 0
 `define CP0_EPC             8'b01110_000 // 14, 0
 `define CP0_PRID            8'b01111_000 // 15, 0
-`define CP0_EBASE           8'b01111_001 // 15, 1
 `define CP0_CONFIG          8'b10000_000 // 16, 0
 `define CP0_CONFIG1         8'b10000_001 // 16, 1
 `define CP0_TAGLO           8'b11100_000 // 28, 0
@@ -71,9 +70,6 @@
 `define CAUSE_IP7_2         15:10
 `define CAUSE_IP1_0         9:8
 `define CAUSE_EXCCODE       6:2
-
-// EBase (15, 1)
-`define EBASE_BASE          29:12
 
 // Config (16, 0)
 `define CONFIG_K0           2:0

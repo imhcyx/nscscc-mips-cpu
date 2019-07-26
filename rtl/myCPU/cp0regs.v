@@ -40,7 +40,6 @@ module cp0regs(
     output  [31:0]      status,
     output  [31:0]      cause,
     output reg [31:0]   epc,
-    output  [31:0]      ebase,
     output reg [2:0]    config_k0
 );
 
@@ -335,21 +334,6 @@ module cp0regs(
     // PRId (15, 0)
     wire [31:0] prid = 32'd0; // TODO
     
-    // EBase (15, 1)
-    reg [17:0] ebase_base;
-    assign ebase = {
-        2'b10,
-        ebase_base, // 29:12
-        2'd0,
-        10'd0
-    };
-    
-    wire ebase_write = mtc0 && addr == `CP0_EBASE;
-    always @(posedge clk) begin
-        if (!resetn) ebase_base <= 18'd0;
-        else if (ebase_write) ebase_base <= mtc0_data[`EBASE_BASE];
-    end
-    
     // Config (16, 0)
     wire [31:0] config0 = {
         1'b1, // M
@@ -422,7 +406,6 @@ module cp0regs(
         {32{addr == `CP0_CAUSE      }} & cause      |
         {32{addr == `CP0_EPC        }} & epc        |
         {32{addr == `CP0_PRID       }} & prid       |
-        {32{addr == `CP0_EBASE      }} & ebase      |
         {32{addr == `CP0_CONFIG     }} & config0    |
         {32{addr == `CP0_CONFIG1    }} & config1    |
         {32{addr == `CP0_TAGLO      }} & taglo      ;
