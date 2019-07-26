@@ -100,10 +100,10 @@ module execute_stage(
         op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
-        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
+        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_pref
     ;
     
     assign {
@@ -115,10 +115,10 @@ module execute_stage(
         op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
-        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
+        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_pref
     } = decoded_i;
     
     wire [`I_MAX-1:0] ctrl_sig;

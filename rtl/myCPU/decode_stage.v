@@ -172,6 +172,7 @@ module decode_stage(
     wire op_tlbwr     = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[6];
     wire op_tlbp      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[8];
     wire op_eret      = op_d[16] && rs_d[16] && rt_d[0] && rd_d[0] && sa_d[0] && func_d[24];
+    wire op_wait      = op_d[16] && inst[25] && func_d[32];
     wire op_beql      = op_d[20];
     wire op_bnel      = op_d[21];
     wire op_blezl     = op_d[22] && rt_d[0];
@@ -196,6 +197,7 @@ module decode_stage(
     wire op_sw        = op_d[43];
     wire op_swr       = op_d[46];
     wire op_cache     = op_d[47];
+    wire op_pref      = op_d[56];
     
     wire [99:0] decoded;
     assign decoded = {
@@ -207,10 +209,10 @@ module decode_stage(
         op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
         op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
         op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
-        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,
+        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_pref
     };
     
     assign rf_raddr1 = `GET_RS(inst);
