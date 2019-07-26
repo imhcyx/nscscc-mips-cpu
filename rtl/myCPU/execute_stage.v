@@ -103,7 +103,7 @@ module execute_stage(
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_pref
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_ll,op_pref,op_sc
     ;
     
     assign {
@@ -118,17 +118,25 @@ module execute_stage(
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_pref
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_ll,op_pref,op_sc
     } = decoded_i;
     
     wire [`I_MAX-1:0] ctrl_sig;
     
     wire reserved = ~|decoded_i;
     
+    // LLbit
+    reg llbit;
+    always @(posedge clk) begin
+        if (!resetn) llbit <= 1'b0;
+        else if (commit && commit_eret) llbit <= 1'b0;
+        else if (valid && op_ll) llbit <= 1'b1;
+    end
+    
     // conditional move
     wire cond_move                = op_movz && rdata2_i == 32'd0 || op_movn && rdata2_i != 32'd0;
     // write data to [rt] generated in ex stage
-    wire inst_rt_wex              = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||op_mfc0||op_clz||op_clo;
+    wire inst_rt_wex              = op_addi||op_addiu||op_slti||op_sltiu||op_andi||op_ori||op_xori||op_lui||op_mfc0||op_clz||op_clo||op_sc;
     // write data to [rt] generated in wb stage
     wire inst_rt_wwb              = ctrl_sig[`I_MEM_R];
     // write data to [rd] generated in ex stage
@@ -151,9 +159,9 @@ module execute_stage(
     assign ctrl_sig[`I_SWR]       = op_swr;
     
     // load instruction
-    assign ctrl_sig[`I_MEM_R]     = op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr;
+    assign ctrl_sig[`I_MEM_R]     = op_lb||op_lh||op_lwl||op_lw||op_lbu||op_lhu||op_lwr||op_ll;
     // store instruction
-    assign ctrl_sig[`I_MEM_W]     = op_sb||op_sh||op_swl||op_sw||op_swr;
+    assign ctrl_sig[`I_MEM_W]     = op_sb||op_sh||op_swl||op_sw||op_swr||op_sc&&llbit;
     // write data generated in ex stage
     assign ctrl_sig[`I_WEX]       = inst_rt_wex||inst_rd_wex||inst_r31_wex;
     // write data generated in wb stage
@@ -390,10 +398,10 @@ module execute_stage(
     wire [1:0] mem_byte_offset = eaddr[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
-    wire mem_adel   = ctrl_sig[`I_LW] && eaddr[1:0] != 2'd0
-                   || (ctrl_sig[`I_LH] || ctrl_sig[`I_LHU]) && eaddr[0] != 1'd0;
-    wire mem_ades   = ctrl_sig[`I_SW] && eaddr[1:0] != 2'd0
-                   || ctrl_sig[`I_SH] && eaddr[0] != 1'd0;
+    wire mem_adel   = (op_lw||op_ll) && eaddr[1:0] != 2'd0
+                   || (op_lh||op_lhu) && eaddr[0] != 1'd0;
+    wire mem_ades   = (op_sw||op_sc) && eaddr[1:0] != 2'd0
+                   || op_sh && eaddr[0] != 1'd0;
     
     wire mem_read = ctrl_sig[`I_MEM_R] && !mem_adel;
     wire mem_write = ctrl_sig[`I_MEM_W] && !mem_ades;
@@ -458,27 +466,27 @@ module execute_stage(
     
     // mem write mask
     assign data_wstrb =
-        {4{ctrl_sig[`I_SW]}} & 4'b1111 |
-        {4{ctrl_sig[`I_SH]}} & (4'b0011 << mem_byte_offset) |
-        {4{ctrl_sig[`I_SB]}} & (4'b0001 << mem_byte_offset) |
-        {4{ctrl_sig[`I_SWL]}} & (4'b1111 >> mem_byte_offsetn) |
-        {4{ctrl_sig[`I_SWR]}} & (4'b1111 << mem_byte_offset);
+        {4{op_sw||op_sc}} & 4'b1111 |
+        {4{op_sh}} & (4'b0011 << mem_byte_offset) |
+        {4{op_sb}} & (4'b0001 << mem_byte_offset) |
+        {4{op_swl}} & (4'b1111 >> mem_byte_offsetn) |
+        {4{op_swr}} & (4'b1111 << mem_byte_offset);
     
     // mem write data
     assign data_wdata =
-        {32{ctrl_sig[`I_SW]}} & rdata2_i |
-        {32{ctrl_sig[`I_SH]}} & {rdata2_i[15:0], rdata2_i[15:0]} |
-        {32{ctrl_sig[`I_SB]}} & {rdata2_i[7:0], rdata2_i[7:0], rdata2_i[7:0], rdata2_i[7:0]} |
-        {32{ctrl_sig[`I_SWL]}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
-        {32{ctrl_sig[`I_SWR]}} & (rdata2_i << (8 * mem_byte_offset));
+        {32{op_sw||op_sc}} & rdata2_i |
+        {32{op_sh}} & {rdata2_i[15:0], rdata2_i[15:0]} |
+        {32{op_sb}} & {rdata2_i[7:0], rdata2_i[7:0], rdata2_i[7:0], rdata2_i[7:0]} |
+        {32{op_swl}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
+        {32{op_swr}} & (rdata2_i << (8 * mem_byte_offset));
     
     assign data_addr[31:12] = (qstate == 2'd0 && kseg01) ? {3'd0, ea_aligned[28:12]} : tlbc_paddr_hi;
     assign data_addr[11:0]  = qstate == 2'd0 ? ea_aligned[11:0] : ea_aligned_save[11:0];
     
     assign data_size =
-        {3{ctrl_sig[`I_SW]||ctrl_sig[`I_SWL]||ctrl_sig[`I_SWR]||ctrl_sig[`I_LW]||ctrl_sig[`I_LWL]||ctrl_sig[`I_LWR]}} & 3'd2 |
-        {3{ctrl_sig[`I_SH]||ctrl_sig[`I_LH]||ctrl_sig[`I_LHU]}} & 3'd1 |
-        {3{ctrl_sig[`I_SB]||ctrl_sig[`I_LB]||ctrl_sig[`I_LBU]}} & 3'd0;
+        {3{op_sw||op_sc||op_swl||op_swr||op_lw||op_ll||op_lwl||op_lwr}} & 3'd2 |
+        {3{op_sh||op_lh||op_lhu}} & 3'd1 |
+        {3{op_sb||op_lb||op_lbu}} & 3'd0;
 
     always @(posedge clk) begin
         if (!resetn) done <= 1'b0;
@@ -541,7 +549,8 @@ module execute_stage(
                     | {32{op_movz||op_movn}} & rdata1_i
                     | {32{op_mul}} & mul_res[31:0]
                     | {32{do_cloz}} & clo_result
-                    | {32{!(op_mfhi||op_mflo||op_lui||do_link||op_mfc0||op_movz||op_movn)}} & alu_res_wire;
+                    | {32{op_sc}} & {32'd0, llbit}
+                    | {32{!(op_mfhi||op_mflo||op_lui||do_link||op_mfc0||op_movz||op_movn||op_mul||do_cloz||op_sc)}} & alu_res_wire;
 
     assign fwd_ok   = valid && done_nonmem && ready_i && ctrl_sig[`I_WEX];
 

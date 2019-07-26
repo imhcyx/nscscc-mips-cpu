@@ -197,7 +197,9 @@ module decode_stage(
     wire op_sw        = op_d[43];
     wire op_swr       = op_d[46];
     wire op_cache     = op_d[47];
-    wire op_pref      = op_d[56];
+    wire op_ll        = op_d[48];
+    wire op_pref      = op_d[51];
+    wire op_sc        = op_d[56];
     
     wire [99:0] decoded;
     assign decoded = {
@@ -212,7 +214,7 @@ module decode_stage(
         op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
         op_beql,op_bnel,op_blezl,op_bgtzl,
         op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_pref
+        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_ll,op_pref,op_sc
     };
     
     assign rf_raddr1 = `GET_RS(inst);
