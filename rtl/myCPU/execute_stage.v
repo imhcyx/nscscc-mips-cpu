@@ -74,6 +74,7 @@ module execute_stage(
     input   [4 :0]              exccode_i,
     output                      commit,
     output                      commit_miss,
+    output                      commit_int,
     output  [4 :0]              commit_code,
     output                      commit_bd,
     output  [31:0]              commit_epc,
@@ -524,6 +525,7 @@ module execute_stage(
     assign commit = valid && exc || valid_i && exc_i;
     assign commit_miss = valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
+    assign commit_int = int_sig;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = prev_branch;
     assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;

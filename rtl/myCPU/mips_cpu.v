@@ -34,7 +34,7 @@ module mips_cpu(
     
     wire int_sig;
     
-    wire commit, commit_miss, commit_bd, commit_eret;
+    wire commit, commit_miss, commit_int, commit_bd, commit_eret;
     wire [4:0] commit_code;
     wire [31:0] commit_epc, commit_bvaddr;
     
@@ -136,9 +136,23 @@ module mips_cpu(
     wire branch;
     wire [31:0] branch_pc;
     
-    wire [31:0] vector =    commit_eret ? cp0_epc :
-                            commit_miss ? `VEC_REFILL_BEV :
-                            `VEC_OTHER_BEV;
+    wire bev = cp0_status[`STATUS_BEV];
+    wire exl = cp0_status[`STATUS_EXL];
+    wire iv  = cp0_cause [`CAUSE_IV];
+    wire [31:0] vector_miss     = {32{!bev&&!exl}} & `VEC_REFILL
+                                | {32{!bev&& exl}} & `VEC_REFILL_EXL
+                                | {32{ bev&&!exl}} & `VEC_REFILL_BEV
+                                | {32{ bev&& exl}} & `VEC_REFILL_BEV_EXL;
+    wire [31:0] vector_intr     = {32{!bev&&!iv }} & `VEC_INTR
+                                | {32{!bev&& iv }} & `VEC_INTR_IV
+                                | {32{ bev&&!iv }} & `VEC_INTR_BEV
+                                | {32{ bev&& iv }} & `VEC_INTR_BEV_IV;
+    wire [31:0] vector_other    = {32{!bev      }} & `VEC_OTHER
+                                | {32{ bev      }} & `VEC_OTHER_BEV;
+    wire [31:0] vector          = {32{commit_eret}} & cp0_epc
+                                | {32{commit_miss}} & vector_miss
+                                | {32{commit_int }} & vector_intr
+                                | {32{!commit_eret&&!commit_miss&&!commit_int}} & vector_other;
     
     reg [31:0] pc;
     (*keep = "true"*)wire [31:0] next_pc = if_pc + 32'd4;
@@ -309,6 +323,7 @@ module mips_cpu(
         .exccode_i      (id_ex_exccode),
         .commit         (commit),
         .commit_miss    (commit_miss),
+        .commit_int     (commit_int),
         .commit_code    (commit_code),
         .commit_bd      (commit_bd),
         .commit_epc     (commit_epc),
