@@ -332,7 +332,7 @@ module cp0regs(
     end
     
     // PRId (15, 0)
-    wire [31:0] prid = 32'd0; // TODO
+    wire [31:0] prid = 32'h00004220;
     
     // Config (16, 0)
     wire [31:0] config0 = {
