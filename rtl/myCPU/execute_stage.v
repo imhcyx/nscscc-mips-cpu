@@ -27,6 +27,7 @@ module execute_stage(
     input                       tlb_dirty,
     input   [2 :0]              tlb_cattr,
     
+    input   [31:0]              status,
     input   [2: 0]              config_k0,
     
     // interrupt
@@ -125,6 +126,12 @@ module execute_stage(
     wire [`I_MAX-1:0] ctrl_sig;
     
     wire reserved = ~|decoded_i;
+    
+    // Coprocessor 0 unavailable
+    
+    wire cp0_inst = op_mfc0||op_mtc0||op_tlbr||op_tlbwi||op_tlbwr||op_tlbp||op_eret||op_wait||op_cache;
+    wire cp0_avail = status[`STATUS_CU0] || !status[`STATUS_UM] || status[`STATUS_EXL];
+    wire cp0u = cp0_inst && !cp0_avail;
     
     // LLbit
     reg llbit;
@@ -399,17 +406,19 @@ module execute_stage(
     wire [1:0] mem_byte_offset = eaddr[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
+    wire kseg01 = ea_aligned[31:30] == 2'b10;
+    wire kseg0 = ea_aligned[31:29] == 3'b100;
+    wire kseg = ea_aligned[31];
+    wire kernelmode = !status[`STATUS_UM] || status[`STATUS_EXL];
     wire mem_adel   = (op_lw||op_ll) && eaddr[1:0] != 2'd0
-                   || (op_lh||op_lhu) && eaddr[0] != 1'd0;
+                   || (op_lh||op_lhu) && eaddr[0] != 1'd0
+                   || ctrl_sig[`I_MEM_R] && kseg && !kernelmode;
     wire mem_ades   = (op_sw||op_sc) && eaddr[1:0] != 2'd0
-                   || op_sh && eaddr[0] != 1'd0;
-    
+                   || op_sh && eaddr[0] != 1'd0
+                   || ctrl_sig[`I_MEM_W] && kseg && !kernelmode;
     wire mem_read = ctrl_sig[`I_MEM_R] && !mem_adel;
     wire mem_write = ctrl_sig[`I_MEM_W] && !mem_ades;
     
-    
-    wire kseg01 = ea_aligned[31:30] == 2'b10;
-    wire kseg0 = ea_aligned[31:29] == 3'b100;
     wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == ea_aligned[31:12];
     
     wire tlbc_ok = qstate == 2'd0 && tlbc_hit
@@ -506,13 +515,14 @@ module execute_stage(
     end
 
     // exceptions
-    wire exc = int_sig || reserved
+    wire exc = int_sig || reserved || cp0u
             || op_syscall || op_break || op_eret || trap
             || alu_of_exc || mem_adel || mem_ades
             || valid_i && (tlbl || tlbs || tlbm);
 
     wire [4:0] exccode = {5{int_sig}} & `EXC_INT
                        | {5{reserved}} & `EXC_RI
+                       | {5{cp0u}} & `EXC_CPU
                        | {5{op_syscall}} & `EXC_SYS
                        | {5{op_break}} & `EXC_BP
                        | {5{trap}} & `EXC_TR
@@ -523,14 +533,14 @@ module execute_stage(
                        | {5{tlbs}} & `EXC_TLBS
                        | {5{tlbm}} & `EXC_MOD;
     assign commit = valid && exc || valid_i && exc_i;
-    assign commit_miss = valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
+    assign commit_miss = !cp0u && valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
-    assign commit_int = int_sig;
+    assign commit_int = !cp0u && int_sig;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = prev_branch;
     assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;
     assign commit_bvaddr = exc_i ? pc_i : eaddr;
-    assign commit_eret = op_eret;
+    assign commit_eret = !cp0u && op_eret;
     
     wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu) && !muldiv
                     ||  (do_j||do_jr||branch_taken) && branch_ready

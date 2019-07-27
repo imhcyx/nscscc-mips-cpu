@@ -18,6 +18,7 @@ module fetch_stage(
     input               tlb_invalid,
     input   [2:0]       tlb_cattr,
     
+    input   [31:0]      status,
     input   [2:0]       config_k0,
     
     output              ready_o,
@@ -46,9 +47,11 @@ module fetch_stage(
     reg tlbc_miss, tlbc_invalid;
     reg [2:0] tlbc_cattr;
     
-    wire if_adel = pc_i[1:0] != 2'd0;
     wire kseg01 = pc_i[31:30] == 2'b10;
     wire kseg0 = pc_i[31:29] == 3'b100;
+    wire kseg = pc_i[31];
+    wire kernelmode = !status[`STATUS_UM] || status[`STATUS_EXL];
+    wire if_adel = pc_i[1:0] != 2'd0 || kseg && !kernelmode;
     wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == pc_i[31:12];
     
     always @(posedge clk) begin
