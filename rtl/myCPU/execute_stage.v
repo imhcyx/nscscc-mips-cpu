@@ -264,18 +264,18 @@ module execute_stage(
     // multiplication
     // the multiplier is divided into 3 stages
     wire [63:0] mul_res;
-    reg [1:0] mul_flag;
-    reg [2:0] maddsub_flag;
+    reg [0:0] mul_flag;
+    reg [1:0] maddsub_flag;
     reg maddsub;
     reg mul_start;
     always @(posedge clk) begin
-        if (!resetn) mul_flag <= 2'b00;
-        else if ((op_div||op_divu) && valid) mul_flag <= 2'b00;
-        else mul_flag <= {mul_flag[0], (op_mult||op_multu||op_mul) && valid && !mul_start};
+        if (!resetn) mul_flag <= 1'b0;
+        else if ((op_div||op_divu) && valid) mul_flag <= 1'b0;
+        else mul_flag <= {(op_mult||op_multu||op_mul) && valid && !mul_start};
         
-        if (!resetn) maddsub_flag <= 3'b000;
-        else if ((op_div||op_divu||op_mult||op_multu) && valid) maddsub_flag <= 3'b000;
-        else maddsub_flag <= {maddsub_flag[1:0], (op_madd||op_maddu||op_msub||op_msubu) && valid && !mul_start && !muldiv};
+        if (!resetn) maddsub_flag <= 2'b00;
+        else if ((op_div||op_divu||op_mult||op_multu) && valid) maddsub_flag <= 2'b00;
+        else maddsub_flag <= {maddsub_flag[0:0], (op_madd||op_maddu||op_msub||op_msubu) && valid && !mul_start && !muldiv};
         
         if (op_madd||op_maddu||op_msub||op_msubu) maddsub <= op_madd||op_maddu;
         
@@ -311,21 +311,21 @@ module execute_stage(
     
     always @(posedge clk) begin
         if (!resetn) muldiv <= 1'b0;
-        else if (mul_flag[1] || maddsub_flag[2] || div_complete) muldiv <= 1'b0;
+        else if (mul_flag[0] || maddsub_flag[1] || div_complete) muldiv <= 1'b0;
         else if ((op_mult||op_multu||op_div||op_divu||op_madd||op_maddu||op_msub||op_msubu) && valid) muldiv <= 1'b1;
     end
     
     reg [63:0] maddsub_temp;
-    always @(posedge clk) if (maddsub_flag[1]) maddsub_temp <= mul_res;
+    always @(posedge clk) if (maddsub_flag[0]) maddsub_temp <= mul_res;
     
     // HI/LO registers
     reg [31:0] hi, lo;
     always @(posedge clk) begin
-        if (mul_flag[1] && !op_mul) begin
+        if (mul_flag[0] && !op_mul) begin
             hi <= mul_res[63:32];
             lo <= mul_res[31:0];
         end
-        else if (maddsub_flag[2]) begin
+        else if (maddsub_flag[1]) begin
             {hi, lo} <= maddsub ? {hi, lo} + maddsub_temp : {hi, lo} - maddsub_temp;
         end
         else if (div_complete) begin
@@ -544,7 +544,7 @@ module execute_stage(
     
     wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu) && !muldiv
                     ||  (do_j||do_jr||branch_taken) && branch_ready
-                    ||  (op_mul) && mul_flag[1]
+                    ||  (op_mul) && mul_flag[0]
                     ||  (do_cloz) && cloz_ok
                     || !(op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu||
                          do_j||do_jr||branch_taken||op_mul||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));

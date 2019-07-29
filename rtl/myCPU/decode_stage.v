@@ -223,10 +223,10 @@ module decode_stage(
     // data forwarding
     // `I_RS_R & `I_RT_R check is omitted for enhanced timing
     // this may introduce false data hazards but no forwarding errors
-    wire fwd_ex_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == ex_fwd_addr;
-    wire fwd_ex_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == ex_fwd_addr;
-    wire fwd_wb_raddr1_hit  = rf_raddr1 != 5'd0 && rf_raddr1 == wb_fwd_addr;
-    wire fwd_wb_raddr2_hit  = rf_raddr2 != 5'd0 && rf_raddr2 == wb_fwd_addr;
+    wire fwd_ex_raddr1_hit  = ex_fwd_addr != 5'd0 && rf_raddr1 == ex_fwd_addr;
+    wire fwd_ex_raddr2_hit  = ex_fwd_addr != 5'd0 && rf_raddr2 == ex_fwd_addr;
+    wire fwd_wb_raddr1_hit  = wb_fwd_addr != 5'd0 && rf_raddr1 == wb_fwd_addr;
+    wire fwd_wb_raddr2_hit  = wb_fwd_addr != 5'd0 && rf_raddr2 == wb_fwd_addr;
     
     wire [31:0] fwd_rdata1  = fwd_ex_raddr1_hit ? ex_fwd_data
                             : fwd_wb_raddr1_hit ? wb_fwd_data

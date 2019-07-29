@@ -129,6 +129,7 @@ module mul(
     end
   endgenerate
   
+`ifdef MUL_BARRIER_2
   reg [63:0] add_a_reg, add_b_reg;
   reg add_cin_reg;
   
@@ -139,5 +140,8 @@ module mul(
   end
   
   assign result = add_a_reg + add_b_reg + add_cin_reg;
+`else
+  assign result = {out_carry[62:0], part_carry_reg[15]} + out_sum + part_carry_reg[16];
+`endif
 
 endmodule
