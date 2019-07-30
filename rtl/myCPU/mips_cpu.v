@@ -24,6 +24,11 @@ module mips_cpu(
     input   [31:0]      data_rdata,
     input               data_addr_ok,
     input               data_data_ok,
+    
+    output              cache_req,
+    output  [6 :0]      cache_op,
+    output  [31:0]      cache_tag,
+    input               cache_op_ok,
 
     //debug interface
     output  [31:0]      debug_wb_pc,
@@ -83,7 +88,8 @@ module mips_cpu(
         .status         (cp0_status),
         .cause          (cp0_cause),
         .epc            (cp0_epc),
-        .config_k0      (config_k0)
+        .config_k0      (config_k0),
+        .taglo          (cache_tag)
     );
     
     // Address Translation
@@ -288,6 +294,9 @@ module mips_cpu(
         .tlb_invalid    (data_invalid),
         .tlb_dirty      (data_dirty),
         .tlb_cattr      (data_cattr),
+        .cache_req      (cache_req),
+        .cache_op       (cache_op),
+        .cache_op_ok    (cache_op_ok),
         .status         (cp0_status),
         .config_k0      (config_k0),
         .int_sig        (int_sig),

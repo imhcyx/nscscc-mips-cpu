@@ -40,7 +40,8 @@ module cp0regs(
     output  [31:0]      status,
     output  [31:0]      cause,
     output reg [31:0]   epc,
-    output reg [2:0]    config_k0
+    output reg [2:0]    config_k0,
+    output reg [31:0]   taglo
 );
 
     wire [5:0] hw_int;
@@ -375,7 +376,6 @@ module cp0regs(
     };
     
     // TagLo (28, 0)
-    reg [31:0] taglo;
     wire taglo_write = mtc0 && addr == `CP0_TAGLO;
     always @(posedge clk) begin
         if (taglo_write) taglo <= mtc0_data;

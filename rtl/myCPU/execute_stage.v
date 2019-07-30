@@ -49,6 +49,11 @@ module execute_stage(
     output                      tlbwi,
     output                      tlbwr,
     output                      tlbp,
+    
+    // cache op
+    output                      cache_req,
+    output  [6 :0]              cache_op,
+    input                       cache_op_ok,
 
     output                      done_o,
     input                       valid_i,
@@ -264,18 +269,18 @@ module execute_stage(
     // multiplication
     // the multiplier is divided into 3 stages
     wire [63:0] mul_res;
-    reg [1:0] mul_flag;
-    reg [2:0] maddsub_flag;
+    reg [0:0] mul_flag;
+    reg [1:0] maddsub_flag;
     reg maddsub;
     reg mul_start;
     always @(posedge clk) begin
-        if (!resetn) mul_flag <= 2'b00;
-        else if ((op_div||op_divu) && valid) mul_flag <= 2'b00;
-        else mul_flag <= {mul_flag[0], (op_mult||op_multu||op_mul) && valid && !mul_start};
+        if (!resetn) mul_flag <= 1'b0;
+        else if ((op_div||op_divu) && valid) mul_flag <= 1'b0;
+        else mul_flag <= {(op_mult||op_multu||op_mul) && valid && !mul_start};
         
-        if (!resetn) maddsub_flag <= 3'b000;
-        else if ((op_div||op_divu||op_mult||op_multu) && valid) maddsub_flag <= 3'b000;
-        else maddsub_flag <= {maddsub_flag[1:0], (op_madd||op_maddu||op_msub||op_msubu) && valid && !mul_start && !muldiv};
+        if (!resetn) maddsub_flag <= 2'b00;
+        else if ((op_div||op_divu||op_mult||op_multu) && valid) maddsub_flag <= 2'b00;
+        else maddsub_flag <= {maddsub_flag[0:0], (op_madd||op_maddu||op_msub||op_msubu) && valid && !mul_start && !muldiv};
         
         if (op_madd||op_maddu||op_msub||op_msubu) maddsub <= op_madd||op_maddu;
         
@@ -311,21 +316,21 @@ module execute_stage(
     
     always @(posedge clk) begin
         if (!resetn) muldiv <= 1'b0;
-        else if (mul_flag[1] || maddsub_flag[2] || div_complete) muldiv <= 1'b0;
+        else if (mul_flag[0] || maddsub_flag[1] || div_complete) muldiv <= 1'b0;
         else if ((op_mult||op_multu||op_div||op_divu||op_madd||op_maddu||op_msub||op_msubu) && valid) muldiv <= 1'b1;
     end
     
     reg [63:0] maddsub_temp;
-    always @(posedge clk) if (maddsub_flag[1]) maddsub_temp <= mul_res;
+    always @(posedge clk) if (maddsub_flag[0]) maddsub_temp <= mul_res;
     
     // HI/LO registers
     reg [31:0] hi, lo;
     always @(posedge clk) begin
-        if (mul_flag[1] && !op_mul) begin
+        if (mul_flag[0] && !op_mul) begin
             hi <= mul_res[63:32];
             lo <= mul_res[31:0];
         end
-        else if (maddsub_flag[2]) begin
+        else if (maddsub_flag[1]) begin
             {hi, lo} <= maddsub ? {hi, lo} + maddsub_temp : {hi, lo} - maddsub_temp;
         end
         else if (div_complete) begin
@@ -388,7 +393,7 @@ module execute_stage(
     assign tlbwi = valid && op_tlbwi;
     assign tlbwr = valid && op_tlbwr;
     assign tlbp = valid && op_tlbp;
-
+    
     ///// memory access request /////
     
     // tlb query fsm (0=check/bypass, 1=query, 2=request)
@@ -437,7 +442,7 @@ module execute_stage(
     
     always @(*) begin
         case (qstate)
-        2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write) ? 2'd0 : 2'd1;
+        2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write && !op_cache) ? 2'd0 : 2'd1;
         2'd1:       qstate_next = 2'd2;
         2'd2:       qstate_next = mem_exc || data_addr_ok ? 2'd0 : 2'd2;
         default:    qstate_next = 2'd0;
@@ -497,6 +502,16 @@ module execute_stage(
         {3{op_sw||op_sc||op_swl||op_swr||op_lw||op_ll||op_lwl||op_lwr}} & 3'd2 |
         {3{op_sh||op_lh||op_lhu}} & 3'd1 |
         {3{op_sb||op_lb||op_lbu}} & 3'd0;
+    
+    // cache op
+    assign cache_req = valid && op_cache && !mem_exc  && req_state;
+    assign cache_op[0] = `GET_RT(inst_i) == 5'b00000; // icache index invalidate
+    assign cache_op[1] = `GET_RT(inst_i) == 5'b01000; // icache index store tag
+    assign cache_op[2] = `GET_RT(inst_i) == 5'b10000; // icache hit invalidate
+    assign cache_op[3] = `GET_RT(inst_i) == 5'b00001; // dcache index writeback invalidate
+    assign cache_op[4] = `GET_RT(inst_i) == 5'b01001; // dcache index store tag
+    assign cache_op[5] = `GET_RT(inst_i) == 5'b10001; // dcache hit invalidate
+    assign cache_op[6] = `GET_RT(inst_i) == 5'b10101; // dcache hit writeback invalidate
 
     always @(posedge clk) begin
         if (!resetn) done <= 1'b0;
@@ -544,12 +559,13 @@ module execute_stage(
     
     wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu) && !muldiv
                     ||  (do_j||do_jr||branch_taken) && branch_ready
-                    ||  (op_mul) && mul_flag[1]
+                    ||  (op_mul) && mul_flag[0]
                     ||  (do_cloz) && cloz_ok
                     || !(op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu||
                          do_j||do_jr||branch_taken||op_mul||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));
     assign done_o   = done_nonmem
                    || (ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]) && (data_addr_ok)
+                   || op_cache && cache_op_ok
                    || exc_i || exc;
     
     assign fwd_addr = {5{valid_i}} & waddr;
