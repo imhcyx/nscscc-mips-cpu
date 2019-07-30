@@ -155,10 +155,10 @@ module mips_cpu(
                                 | {32{ bev&& iv }} & `VEC_INTR_BEV_IV;
     wire [31:0] vector_other    = {32{!bev      }} & `VEC_OTHER
                                 | {32{ bev      }} & `VEC_OTHER_BEV;
-    wire [31:0] vector          = {32{commit_eret}} & cp0_epc
-                                | {32{commit_miss}} & vector_miss
-                                | {32{commit_int }} & vector_intr
-                                | {32{!commit_eret&&!commit_miss&&!commit_int}} & vector_other;
+    wire [31:0] vector          = commit_eret ? cp0_epc
+                                : commit_miss ? vector_miss
+                                : commit_int  ? vector_intr
+                                : vector_other;
     
     reg [31:0] pc;
     (*keep = "true"*)wire [31:0] next_pc = if_pc + 32'd4;

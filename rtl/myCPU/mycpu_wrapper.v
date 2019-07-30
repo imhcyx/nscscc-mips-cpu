@@ -36,6 +36,8 @@ module mycpu_top(
     wire [31:0] cpu_data_rdata;
     wire cpu_data_addr_ok;
     wire cpu_data_data_ok;
+    
+    wire cache_req;
 
     mips_cpu cpu(
         .clk(clk),
@@ -55,10 +57,10 @@ module mycpu_top(
         .data_rdata(cpu_data_rdata),
         .data_addr_ok(cpu_data_addr_ok),
         .data_data_ok(cpu_data_data_ok),
-        .cache_req(),
+        .cache_req(cache_req),
         .cache_op(),
         .cache_tag(),
-        .cache_op_ok(1'b1),
+        .cache_op_ok(cache_req),
         .debug_wb_pc(debug_wb_pc),
         .debug_wb_rf_wen(debug_wb_rf_wen),
         .debug_wb_rf_wnum(debug_wb_rf_wnum),

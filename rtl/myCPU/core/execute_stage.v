@@ -417,7 +417,7 @@ module execute_stage(
     wire kernelmode = !status[`STATUS_UM] || status[`STATUS_EXL];
     wire mem_adel   = (op_lw||op_ll) && eaddr[1:0] != 2'd0
                    || (op_lh||op_lhu) && eaddr[0] != 1'd0
-                   || ctrl_sig[`I_MEM_R] && kseg && !kernelmode;
+                   || (ctrl_sig[`I_MEM_R] || op_cache) && kseg && !kernelmode;
     wire mem_ades   = (op_sw||op_sc) && eaddr[1:0] != 2'd0
                    || op_sh && eaddr[0] != 1'd0
                    || ctrl_sig[`I_MEM_W] && kseg && !kernelmode;
@@ -429,7 +429,7 @@ module execute_stage(
     wire tlbc_ok = qstate == 2'd0 && tlbc_hit
                 || qstate == 2'd2;
     
-    wire tlbl = ctrl_sig[`I_MEM_R] && tlbc_ok && (tlbc_miss || tlbc_invalid);
+    wire tlbl = (ctrl_sig[`I_MEM_R] || op_cache) && tlbc_ok && (tlbc_miss || tlbc_invalid);
     wire tlbs = ctrl_sig[`I_MEM_W] && tlbc_ok && (tlbc_miss || tlbc_invalid);
     wire tlbm = ctrl_sig[`I_MEM_W] && tlbc_ok && !tlbc_miss && !tlbc_invalid && !tlbc_dirty;
     
@@ -442,7 +442,7 @@ module execute_stage(
     
     always @(*) begin
         case (qstate)
-        2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write && !op_cache) ? 2'd0 : 2'd1;
+        2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write && !(op_cache && !cp0u)) ? 2'd0 : 2'd1;
         2'd1:       qstate_next = 2'd2;
         2'd2:       qstate_next = mem_exc || data_addr_ok ? 2'd0 : 2'd2;
         default:    qstate_next = 2'd0;
@@ -504,7 +504,7 @@ module execute_stage(
         {3{op_sb||op_lb||op_lbu}} & 3'd0;
     
     // cache op
-    assign cache_req = valid && op_cache && !mem_exc  && req_state;
+    assign cache_req = valid && op_cache && !cp0u && !mem_exc  && req_state;
     assign cache_op[0] = `GET_RT(inst_i) == 5'b00000; // icache index invalidate
     assign cache_op[1] = `GET_RT(inst_i) == 5'b01000; // icache index store tag
     assign cache_op[2] = `GET_RT(inst_i) == 5'b10000; // icache hit invalidate
@@ -548,7 +548,7 @@ module execute_stage(
                        | {5{tlbs}} & `EXC_TLBS
                        | {5{tlbm}} & `EXC_MOD;
     assign commit = valid && exc || valid_i && exc_i;
-    assign commit_miss = !cp0u && valid && (mem_read || mem_write) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
+    assign commit_miss = !cp0u && valid && (mem_read || mem_write || op_cache) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
     assign commit_int = !cp0u && int_sig;
     assign commit_code = valid && exc ? exccode : exccode_i;
@@ -562,7 +562,7 @@ module execute_stage(
                     ||  (op_mul) && mul_flag[0]
                     ||  (do_cloz) && cloz_ok
                     || !(op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu||
-                         do_j||do_jr||branch_taken||op_mul||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]));
+                         do_j||do_jr||branch_taken||op_mul||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]||op_cache));
     assign done_o   = done_nonmem
                    || (ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]) && (data_addr_ok)
                    || op_cache && cache_op_ok
