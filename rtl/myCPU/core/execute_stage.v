@@ -384,15 +384,15 @@ module execute_stage(
                         | {32{do_j}} & pc_j_i;
     
     // mtc0/mfc0
-    assign cp0_w = valid && op_mtc0;
+    assign cp0_w = valid && !cp0u && op_mtc0;
     assign cp0_wdata = rdata2_i;
     assign cp0_addr = {`GET_RD(inst_i), inst_i[2:0]};
     
     // tlb instructions
-    assign tlbr = valid && op_tlbr;
-    assign tlbwi = valid && op_tlbwi;
-    assign tlbwr = valid && op_tlbwr;
-    assign tlbp = valid && op_tlbp;
+    assign tlbr = valid && !cp0u && op_tlbr;
+    assign tlbwi = valid && !cp0u && op_tlbwi;
+    assign tlbwr = valid && !cp0u && op_tlbwr;
+    assign tlbp = valid && !cp0u && op_tlbp;
     
     ///// memory access request /////
     
