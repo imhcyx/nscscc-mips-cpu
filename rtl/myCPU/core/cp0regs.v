@@ -362,7 +362,7 @@ module cp0regs(
         6'd31,  // TLB entries = 32
         3'd1,   // Icache sets = 128
         3'd4,   // Icache line size = 32
-        3'd1,   // Icache associativity = 2
+        3'd3,   // Icache associativity = 4
         3'd1,   // Dcache sets = 128
         3'd4,   // Dcache line size = 32
         3'd1,   // Dcache associativity = 2
