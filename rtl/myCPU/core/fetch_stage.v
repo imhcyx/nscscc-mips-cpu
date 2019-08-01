@@ -35,6 +35,8 @@ module fetch_stage(
     output reg [4:0]    exccode_o,
     input               commit_i,
     
+    output              ok_to_branch,
+    
     output reg [31:0]   perfcnt_fetch_waitreq
 );
     
@@ -99,16 +101,17 @@ module fetch_stage(
     wire if_req_exc = qstate == 2'd0 && if_adel
                    || qstate == 2'd2 && (tlbc_miss || tlbc_invalid);
     
-    wire ok_to_req = ready_i;
     wire req_state = qstate == 2'd0 && (kseg01 || tlbc_hit)
                   || qstate == 2'd2;
     
-    assign inst_req         = valid_i && ok_to_req && !if_req_exc && req_state;
+    assign inst_req         = valid_i && !if_req_exc && req_state;
     assign inst_addr[31:12] = (qstate == 2'd0 && kseg01) ? {3'd0, pc_i[28:12]} : tlbc_paddr_hi;
     assign inst_addr[11:0]  = qstate == 2'd0 ? pc_i[11:0] : pc_save[11:0];
     assign inst_cache       = qstate == 2'd0 ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
     
     assign ready_o      = ready_i && (inst_addr_ok || if_req_exc);
+    
+    assign ok_to_branch = qstate == 2'd0;
     
     // Note: exception in IF_req must be passwd to ID after the instruction in IF_wait has been passed to ID
     always @(posedge clk) begin

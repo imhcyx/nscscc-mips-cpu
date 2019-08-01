@@ -139,6 +139,7 @@ module mips_cpu(
     wire if_id_cancelled, if_id_exc, if_id_exc_miss;
     wire [4:0] if_id_exccode;
     
+    wire ok_to_branch;
     wire branch;
     wire [31:0] branch_pc;
     
@@ -198,7 +199,8 @@ module mips_cpu(
         .exc_o          (if_id_exc),
         .exc_miss_o     (if_id_exc_miss),
         .exccode_o      (if_id_exccode),
-        .commit_i       (commit)
+        .commit_i       (commit),
+        .ok_to_branch   (ok_to_branch)
     );
     
     //////////////////// ID ////////////////////
@@ -286,7 +288,7 @@ module mips_cpu(
         .data_wdata     (data_wdata),
         .data_addr_ok   (data_addr_ok),
         .branch         (branch),
-        .branch_ready   (if_id_valid),
+        .branch_ready   (if_id_valid && ok_to_branch),
         .target_pc      (branch_pc),
         .tlb_vaddr      (data_vaddr),
         .tlb_paddr      (data_paddr),
