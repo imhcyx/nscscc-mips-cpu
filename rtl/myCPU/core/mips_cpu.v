@@ -139,7 +139,7 @@ module mips_cpu(
     wire if_id_cancelled, if_id_exc, if_id_exc_miss;
     wire [4:0] if_id_exccode;
     
-    wire branch;
+    wire branch, blikely_clear;
     wire [31:0] branch_pc;
     
     wire bev = cp0_status[`STATUS_BEV];
@@ -263,7 +263,7 @@ module mips_cpu(
         .exc_o          (id_ex_exc),
         .exc_miss_o     (id_ex_exc_miss),
         .exccode_o      (id_ex_exccode),
-        .cancel_i       (commit)
+        .cancel_i       (commit||blikely_clear)
     );
     
     //////////////////// EX ////////////////////
@@ -287,6 +287,7 @@ module mips_cpu(
         .data_addr_ok   (data_addr_ok),
         .branch         (branch),
         .branch_ready   (if_id_valid),
+        .blikely_clear  (blikely_clear),
         .target_pc      (branch_pc),
         .tlb_vaddr      (data_vaddr),
         .tlb_paddr      (data_paddr),

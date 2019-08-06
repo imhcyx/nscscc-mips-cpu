@@ -17,6 +17,7 @@ module execute_stage(
     // branch/jump signals
     output                      branch,
     input                       branch_ready,
+    output                      blikely_clear,
     output  [31:0]              target_pc,
     
     // tlb
@@ -196,6 +197,7 @@ module execute_stage(
     wire do_bltz    = op_bltz||op_bltzl||op_bltzal||op_bltzall;
     wire do_j       = op_j||op_jal;
     wire do_jr      = op_jr||op_jalr;
+    wire likely     = op_bltzl||op_bgezl||op_bltzall||op_bgezall||op_beql||op_bnel||op_blezl||op_bgtzl;
     
     wire [4:0] waddr = {5{inst_rt_wex||inst_rt_wwb}}    & `GET_RT(inst_i)
                      | {5{inst_rd_wex}}                 & `GET_RD(inst_i)
@@ -377,7 +379,8 @@ module execute_stage(
                        || (do_bgtz && !(rdata1_i[31] || rdata1_i == 32'd0))
                        || (do_bltz && rdata1_i[31]);
 
-    assign branch       = valid && branch_ready && (do_j||do_jr||branch_taken); // && done_o
+    assign branch           = valid && branch_ready && (do_j||do_jr||branch_taken);
+    assign blikely_clear    = valid && branch_ready && likely && !branch_taken;
     
     assign target_pc    = {32{!(do_j||do_jr)}} & pc_b_i
                         | {32{do_jr}} & rdata1_i
