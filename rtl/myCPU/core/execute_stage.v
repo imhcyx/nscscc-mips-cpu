@@ -465,7 +465,14 @@ module execute_stage(
     end
     
     always @(posedge clk) begin
-        if (qstate == 2'd1) begin
+        if (!resetn) begin
+            tlbc_vaddr_hi <= 20'd0;
+            tlbc_paddr_hi <= 20'd0;
+            tlbc_miss <= 1'b0;
+            tlbc_invalid <= 1'b0;
+            tlbc_cattr <= 3'd0;
+        end
+        else if (qstate == 2'd1) begin
             tlbc_vaddr_hi <= ea_aligned_save[31:12];
             tlbc_paddr_hi <= tlb_paddr[31:12];
             tlbc_miss <= tlb_miss;
