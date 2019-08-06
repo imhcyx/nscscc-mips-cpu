@@ -410,7 +410,9 @@ module execute_stage(
     
     //wire [31:0] eff_addr = rdata1_i + imm_sx;
     wire [31:0] eaddr = rdata1_i + imm_sx;
-    wire [31:0] ea_aligned = eaddr & 32'hfffffffc;
+    wire align_4 = op_sw||op_sc||op_swl||op_swr||op_lw||op_ll||op_lwl||op_lwr;
+    wire align_2 = op_sh||op_lh||op_lhu;
+    wire [31:0] ea_aligned = {eaddr[31:2], ~align_4&eaddr[1], ~align_4&~align_2&eaddr[0]};
     wire [1:0] mem_byte_offset = eaddr[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
