@@ -11,13 +11,13 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="983866805899fs"></ZoomStartTime>
-      <ZoomEndTime time="983975970506fs"></ZoomEndTime>
-      <Cursor1Time time="983885000000fs"></Cursor1Time>
+      <ZoomStartTime time="1566685786726fs"></ZoomStartTime>
+      <ZoomEndTime time="1566792842655fs"></ZoomEndTime>
+      <Cursor1Time time="1566775000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="217"></NameColumnWidth>
-      <ValueColumnWidth column_width="85"></ValueColumnWidth>
+      <ValueColumnWidth column_width="89"></ValueColumnWidth>
    </column_width_setting>
    <WVObjectSize size="23" />
    <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/clk" type="logic">
@@ -35,6 +35,10 @@
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/inst_req" type="logic">
          <obj_property name="ElementShortName">inst_req</obj_property>
          <obj_property name="ObjectShortName">inst_req</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/inst_cache" type="logic">
+         <obj_property name="ElementShortName">inst_cache</obj_property>
+         <obj_property name="ObjectShortName">inst_cache</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/inst_addr" type="array">
          <obj_property name="ElementShortName">inst_addr[31:0]</obj_property>
@@ -55,6 +59,10 @@
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/data_req" type="logic">
          <obj_property name="ElementShortName">data_req</obj_property>
          <obj_property name="ObjectShortName">data_req</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/data_cache" type="logic">
+         <obj_property name="ElementShortName">data_cache</obj_property>
+         <obj_property name="ObjectShortName">data_cache</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/data_wr" type="logic">
          <obj_property name="ElementShortName">data_wr</obj_property>
@@ -348,31 +356,6 @@
    <wvobject fp_name="group181" type="group">
       <obj_property name="label">ID</obj_property>
       <obj_property name="DisplayName">label</obj_property>
-      <obj_property name="isExpanded"></obj_property>
-      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/inst_rdata" type="array">
-         <obj_property name="ElementShortName">inst_rdata[31:0]</obj_property>
-         <obj_property name="ObjectShortName">inst_rdata[31:0]</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/inst_data_ok" type="logic">
-         <obj_property name="ElementShortName">inst_data_ok</obj_property>
-         <obj_property name="ObjectShortName">inst_data_ok</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/inst_save" type="array">
-         <obj_property name="ElementShortName">inst_save[31:0]</obj_property>
-         <obj_property name="ObjectShortName">inst_save[31:0]</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/inst_saved" type="logic">
-         <obj_property name="ElementShortName">inst_saved</obj_property>
-         <obj_property name="ObjectShortName">inst_saved</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/inst" type="array">
-         <obj_property name="ElementShortName">inst[31:0]</obj_property>
-         <obj_property name="ObjectShortName">inst[31:0]</obj_property>
-      </wvobject>
-      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/inst_ok" type="logic">
-         <obj_property name="ElementShortName">inst_ok</obj_property>
-         <obj_property name="ObjectShortName">inst_ok</obj_property>
-      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/decode/fwd_ex_raddr1_hit" type="logic">
          <obj_property name="ElementShortName">fwd_ex_raddr1_hit</obj_property>
          <obj_property name="ObjectShortName">fwd_ex_raddr1_hit</obj_property>
