@@ -410,15 +410,12 @@ module execute_stage(
     
     //wire [31:0] eff_addr = rdata1_i + imm_sx;
     wire [31:0] eaddr = rdata1_i + imm_sx;
-    wire align_4 = op_sw||op_sc||op_swl||op_swr||op_lw||op_ll||op_lwl||op_lwr;
-    wire align_2 = op_sh||op_lh||op_lhu;
-    wire [31:0] ea_aligned = {eaddr[31:2], ~align_4&eaddr[1], ~align_4&~align_2&eaddr[0]};
     wire [1:0] mem_byte_offset = eaddr[1:0];
     wire [1:0] mem_byte_offsetn = ~mem_byte_offset;
     
-    wire kseg01 = ea_aligned[31:30] == 2'b10;
-    wire kseg0 = ea_aligned[31:29] == 3'b100;
-    wire kseg = ea_aligned[31];
+    wire kseg01 = eaddr[31:30] == 2'b10;
+    wire kseg0 = eaddr[31:29] == 3'b100;
+    wire kseg = eaddr[31];
     wire kernelmode = !status[`STATUS_UM] || status[`STATUS_EXL];
     wire mem_adel   = (op_lw||op_ll) && eaddr[1:0] != 2'd0
                    || (op_lh||op_lhu) && eaddr[0] != 1'd0
@@ -429,7 +426,7 @@ module execute_stage(
     wire mem_read = ctrl_sig[`I_MEM_R] && !mem_adel;
     wire mem_write = ctrl_sig[`I_MEM_W] && !mem_ades;
     
-    wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == ea_aligned[31:12];
+    wire tlbc_hit = tlbc_valid && tlbc_vaddr_hi == eaddr[31:12];
     
     wire tlbc_ok = qstate == 2'd0 && tlbc_hit
                 || qstate == 2'd2;
@@ -455,10 +452,10 @@ module execute_stage(
     end
     
     // ea is saved for tlb lookup
-    reg [31:0] ea_aligned_save;
-    always @(posedge clk) if (qstate_next == 2'd1) ea_aligned_save <= ea_aligned;
+    reg [31:0] eaddr_save;
+    always @(posedge clk) if (qstate_next == 2'd1) eaddr_save <= eaddr;
     
-    assign tlb_vaddr = ea_aligned_save;
+    assign tlb_vaddr = eaddr_save;
     
     always @(posedge clk) begin
         if (!resetn) tlbc_valid <= 1'b0;
@@ -475,7 +472,7 @@ module execute_stage(
             tlbc_cattr <= 3'd0;
         end
         else if (qstate == 2'd1) begin
-            tlbc_vaddr_hi <= ea_aligned_save[31:12];
+            tlbc_vaddr_hi <= eaddr_save[31:12];
             tlbc_paddr_hi <= tlb_paddr[31:12];
             tlbc_miss <= tlb_miss;
             tlbc_invalid <= tlb_invalid;
@@ -507,8 +504,8 @@ module execute_stage(
         {32{op_swl}} & (rdata2_i >> (8 * mem_byte_offsetn)) |
         {32{op_swr}} & (rdata2_i << (8 * mem_byte_offset));
     
-    assign data_addr[31:12] = (qstate == 2'd0 && kseg01) ? {3'd0, ea_aligned[28:12]} : tlbc_paddr_hi;
-    assign data_addr[11:0]  = qstate == 2'd0 ? ea_aligned[11:0] : ea_aligned_save[11:0];
+    assign data_addr[31:12] = (qstate == 2'd0 && kseg01) ? {3'd0, eaddr[28:12]} : tlbc_paddr_hi;
+    assign data_addr[11:0]  = qstate == 2'd0 ? eaddr[11:0] : eaddr_save[11:0];
     
     assign data_size =
         {3{op_sw||op_sc||op_swl||op_swr||op_lw||op_ll||op_lwl||op_lwr}} & 3'd2 |
