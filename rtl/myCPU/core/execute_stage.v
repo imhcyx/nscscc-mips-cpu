@@ -162,7 +162,7 @@ module execute_stage(
     assign ctrl_sig[`I_LB]        = op_lb;
     assign ctrl_sig[`I_LH]        = op_lh;
     assign ctrl_sig[`I_LWL]       = op_lwl;
-    assign ctrl_sig[`I_LW]        = op_lw;
+    assign ctrl_sig[`I_LW]        = op_lw||op_ll;
     assign ctrl_sig[`I_LBU]       = op_lbu;
     assign ctrl_sig[`I_LHU]       = op_lhu;
     assign ctrl_sig[`I_LWR]       = op_lwr;
