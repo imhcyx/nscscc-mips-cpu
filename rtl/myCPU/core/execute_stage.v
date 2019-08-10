@@ -31,9 +31,6 @@ module execute_stage(
     input   [31:0]              status,
     input   [2: 0]              config_k0,
     
-    // interrupt
-    input                       int_sig,
-    
     // data forwarding
     output  [4 :0]              fwd_addr,
     output  [31:0]              fwd_data,
@@ -78,6 +75,7 @@ module execute_stage(
     // exception interface
     input                       exc_i,
     input                       exc_miss_i,
+    input                       exc_int_i,
     input   [4 :0]              exccode_i,
     output                      commit,
     output                      commit_miss,
@@ -539,13 +537,12 @@ module execute_stage(
     end
 
     // exceptions
-    wire exc = int_sig || reserved || cp0u
+    wire exc = reserved || cp0u
             || op_syscall || op_break || op_eret || trap
             || alu_of_exc || mem_adel || mem_ades
             || valid_i && (tlbl || tlbs || tlbm);
 
-    wire [4:0] exccode = {5{int_sig}} & `EXC_INT
-                       | {5{reserved}} & `EXC_RI
+    wire [4:0] exccode = {5{reserved}} & `EXC_RI
                        | {5{cp0u}} & `EXC_CPU
                        | {5{op_syscall}} & `EXC_SYS
                        | {5{op_break}} & `EXC_BP
@@ -559,7 +556,7 @@ module execute_stage(
     assign commit = valid && exc || valid_i && exc_i;
     assign commit_miss = !cp0u && valid && (mem_read || mem_write || op_cache) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
-    assign commit_int = !cp0u && int_sig;
+    assign commit_int = valid_i && exc_i && exc_int_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = prev_branch;
     assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;

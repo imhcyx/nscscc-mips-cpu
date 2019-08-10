@@ -226,7 +226,7 @@ module mips_cpu(
     wire [31:0] id_ex_pc, id_ex_inst;
     wire [99:0] id_ex_decoded;
     wire [31:0] id_ex_rdata1, id_ex_rdata2, id_ex_pc_j, id_ex_pc_b;
-    wire id_ex_exc, id_ex_exc_miss;
+    wire id_ex_exc, id_ex_exc_miss, id_ex_exc_int;
     wire [4:0] id_ex_exccode;
     
     decode_stage decode(
@@ -244,6 +244,7 @@ module mips_cpu(
         .wb_fwd_addr    (wb_fwd_addr),
         .wb_fwd_data    (wb_fwd_data),
         .wb_fwd_ok      (wb_fwd_ok),
+        .int_sig        (int_sig),
         .done_o         (id_done),
         .valid_i        (if_id_valid),
         .pc_i           (if_id_pc),
@@ -262,6 +263,7 @@ module mips_cpu(
         .exccode_i      (if_id_exccode),
         .exc_o          (id_ex_exc),
         .exc_miss_o     (id_ex_exc_miss),
+        .exc_int_o      (id_ex_exc_int),
         .exccode_o      (id_ex_exccode),
         .cancel_i       (commit||blikely_clear)
     );
@@ -300,7 +302,6 @@ module mips_cpu(
         .cache_op_ok    (cache_op_ok),
         .status         (cp0_status),
         .config_k0      (config_k0),
-        .int_sig        (int_sig),
         .fwd_addr       (ex_fwd_addr),
         .fwd_data       (ex_fwd_data),
         .fwd_ok         (ex_fwd_ok),
@@ -332,6 +333,7 @@ module mips_cpu(
         .waddr_o        (ex_wb_waddr),
         .exc_i          (id_ex_exc),
         .exc_miss_i     (id_ex_exc_miss),
+        .exc_int_i      (id_ex_exc_int),
         .exccode_i      (id_ex_exccode),
         .commit         (commit),
         .commit_miss    (commit_miss),

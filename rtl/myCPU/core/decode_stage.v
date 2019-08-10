@@ -38,6 +38,9 @@ module decode_stage(
     input   [4 :0]              wb_fwd_addr,    // 0 if instruction does not write
     input   [31:0]              wb_fwd_data,
     input                       wb_fwd_ok,      // whether data is generated after wb stage
+    
+    // interrupt
+    input                       int_sig,
 
     output                      done_o,
     input                       valid_i,
@@ -59,6 +62,7 @@ module decode_stage(
     input   [4:0]               exccode_i,
     output reg                  exc_o,
     output reg                  exc_miss_o,
+    output reg                  exc_int_o,
     output reg [4:0]            exccode_o,
     input                       cancel_i,
     
@@ -266,6 +270,7 @@ module decode_stage(
             pc_b_o      <= 32'd0;
             exc_o       <= 1'b0;
             exc_miss_o  <= 1'b0;
+            exc_int_o   <= 1'b0;
             exccode_o   <= 5'd0;
         end
         else if (ready_i) begin
@@ -277,9 +282,10 @@ module decode_stage(
             rdata2_o    <= fwd_rdata2;
             pc_j_o      <= pc_jump;
             pc_b_o      <= pc_branch;
-            exc_o       <= exc_i;
+            exc_o       <= exc_i || int_sig;
             exc_miss_o  <= exc_miss_i;
-            exccode_o   <= exccode_i;
+            exc_int_o   <= !exc_i && int_sig;
+            exccode_o   <= exc_i ? exccode_i : `EXC_INT;
         end
     end
     
