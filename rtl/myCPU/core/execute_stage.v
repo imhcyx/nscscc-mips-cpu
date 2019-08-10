@@ -483,7 +483,7 @@ module execute_stage(
                   || qstate == 2'd2;
     
     assign data_req = valid && (mem_read || mem_write) && !mem_exc && req_state;
-    assign data_cache = qstate == 2'd0 ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
+    assign data_cache = (qstate == 2'd0 && kseg01) ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
     assign data_wr = mem_write;
     
     // mem write mask
