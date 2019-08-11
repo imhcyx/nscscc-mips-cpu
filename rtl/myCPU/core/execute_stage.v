@@ -419,7 +419,7 @@ module execute_stage(
     
     always @(*) begin
         case (qstate)
-        2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write && !(op_cache && !cp0u)) ? 2'd0 : 2'd1;
+        2'd0:       qstate_next = (valid && (mem_read || mem_write || op_cache && !cp0u && !mem_adel) && !kseg01 && !tlbc_hit) ? 2'd1 : 2'd0;
         2'd1:       qstate_next = 2'd2;
         2'd2:       qstate_next = mem_exc || data_addr_ok || cache_op_ok ? 2'd0 : 2'd2;
         default:    qstate_next = 2'd0;
@@ -488,7 +488,7 @@ module execute_stage(
         {3{op_sb||op_lb||op_lbu}} & 3'd0;
     
     // cache op
-    assign cache_req = valid && op_cache && !cp0u && !mem_exc  && req_state;
+    assign cache_req = valid && op_cache && !cp0u && !mem_exc && req_state;
     assign cache_op[0] = `GET_RT(inst_i) == 5'b00000; // icache index invalidate
     assign cache_op[1] = `GET_RT(inst_i) == 5'b01000; // icache index store tag
     assign cache_op[2] = `GET_RT(inst_i) == 5'b10000; // icache hit invalidate
@@ -534,7 +534,7 @@ module execute_stage(
     assign commit_miss = !cpxu && valid && (mem_read || mem_write || op_cache) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
     assign commit_int = valid_i && exc_i && exc_int_i;
-    assign commit_code = valid && exc ? exccode : exccode_i;
+    assign commit_code = valid_i && exc_i ? exccode_i : exccode;
     assign commit_bd = prev_branch;
     assign commit_ce = {2{cp1u}} & 2'd1;
     assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;
