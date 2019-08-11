@@ -444,7 +444,7 @@ module execute_stage(
         case (qstate)
         2'd0:       qstate_next = (kseg01 || tlbc_hit || !valid_i || !mem_read && !mem_write && !(op_cache && !cp0u)) ? 2'd0 : 2'd1;
         2'd1:       qstate_next = 2'd2;
-        2'd2:       qstate_next = mem_exc || data_addr_ok ? 2'd0 : 2'd2;
+        2'd2:       qstate_next = mem_exc || data_addr_ok || cache_op_ok ? 2'd0 : 2'd2;
         default:    qstate_next = 2'd0;
         endcase
     end
