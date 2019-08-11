@@ -41,6 +41,7 @@ module mips_cpu(
     
     wire commit, commit_miss, commit_int, commit_bd, commit_eret;
     wire [4:0] commit_code;
+    wire [1:0] commit_ce;
     wire [31:0] commit_epc, commit_bvaddr;
     
     wire cp0_w;
@@ -76,6 +77,7 @@ module mips_cpu(
         .commit_exc     (commit),
         .commit_code    (commit_code),
         .commit_bd      (commit_bd),
+        .commit_ce      (commit_ce),
         .commit_epc     (commit_epc),
         .commit_bvaddr  (commit_bvaddr),
         .commit_eret    (commit_eret),
@@ -224,7 +226,7 @@ module mips_cpu(
     
     wire id_ex_valid, ex_id_ready, id_done;
     wire [31:0] id_ex_pc, id_ex_inst;
-    wire [99:0] id_ex_decoded;
+    wire [`LDECBITS] id_ex_decoded;
     wire [31:0] id_ex_rdata1, id_ex_rdata2, id_ex_pc_j, id_ex_pc_b;
     wire id_ex_exc, id_ex_exc_miss, id_ex_exc_int;
     wire [4:0] id_ex_exccode;
@@ -340,6 +342,7 @@ module mips_cpu(
         .commit_int     (commit_int),
         .commit_code    (commit_code),
         .commit_bd      (commit_bd),
+        .commit_ce      (commit_ce),
         .commit_epc     (commit_epc),
         .commit_bvaddr  (commit_bvaddr),
         .commit_eret    (commit_eret)

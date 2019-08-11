@@ -11,13 +11,13 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1566685786726fs"></ZoomStartTime>
-      <ZoomEndTime time="1566792842655fs"></ZoomEndTime>
-      <Cursor1Time time="1566775000000fs"></Cursor1Time>
+      <ZoomStartTime time="1340266029495fs"></ZoomStartTime>
+      <ZoomEndTime time="1340375194102fs"></ZoomEndTime>
+      <Cursor1Time time="1340357000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="217"></NameColumnWidth>
-      <ValueColumnWidth column_width="89"></ValueColumnWidth>
+      <ValueColumnWidth column_width="85"></ValueColumnWidth>
    </column_width_setting>
    <WVObjectSize size="23" />
    <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/clk" type="logic">
@@ -132,6 +132,10 @@
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/commit_code" type="array">
          <obj_property name="ElementShortName">commit_code[4:0]</obj_property>
          <obj_property name="ObjectShortName">commit_code[4:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/commit_ce" type="array">
+         <obj_property name="ElementShortName">commit_ce[1:0]</obj_property>
+         <obj_property name="ObjectShortName">commit_ce[1:0]</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/commit_epc" type="array">
          <obj_property name="ElementShortName">commit_epc[31:0]</obj_property>

@@ -57,7 +57,7 @@ module execute_stage(
     input                       valid_i,
     input   [31:0]              pc_i,
     input   [31:0]              inst_i,
-    input   [99:0]              decoded_i,
+    input   [`LDECBITS]         decoded_i,
     input   [31:0]              rdata1_i,
     input   [31:0]              rdata2_i,
     input   [31:0]              pc_j_i,
@@ -82,6 +82,7 @@ module execute_stage(
     output                      commit_int,
     output  [4 :0]              commit_code,
     output                      commit_bd,
+    output  [1 :0]              commit_ce,
     output  [31:0]              commit_epc,
     output  [31:0]              commit_bvaddr,
     output                      commit_eret,
@@ -97,35 +98,9 @@ module execute_stage(
     
     ////////// post-decode //////////
     
-    wire
-        op_sll,op_srl,op_sra,op_sllv,op_srlv,op_srav,
-        op_jr,op_jalr,op_movz, op_movn, op_syscall,op_break,op_sync,
-        op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
-        op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
-        op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
-        op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
-        op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
-        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
-        op_beql,op_bnel,op_blezl,op_bgtzl,
-        op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_ll,op_pref,op_sc
-    ;
+    wire `DECODED_OPS;
     
-    assign {
-        op_sll,op_srl,op_sra,op_sllv,op_srlv,op_srav,
-        op_jr,op_jalr,op_movz, op_movn, op_syscall,op_break,op_sync,
-        op_mfhi,op_mthi,op_mflo,op_mtlo,op_mult,op_multu,op_div,op_divu,
-        op_add,op_addu,op_sub,op_subu,op_and,op_or,op_xor,op_nor,op_slt,op_sltu,
-        op_tge, op_tgeu, op_tlt, op_tltu, op_teq, op_tne, op_bltz,op_bgez,op_bltzl,op_bgezl,
-        op_tgei, op_tgeiu, op_tlti, op_tltiu, op_teqi, op_tnei, op_bltzal,op_bgezal,op_bltzall,op_bgezall,
-        op_j,op_jal,op_beq,op_bne,op_blez,op_bgtz,
-        op_addi,op_addiu,op_slti,op_sltiu,op_andi,op_ori,op_xori,op_lui,
-        op_mfc0,op_mtc0,op_tlbr,op_tlbwi,op_tlbwr,op_tlbp,op_eret,op_wait,
-        op_beql,op_bnel,op_blezl,op_bgtzl,
-        op_madd,op_maddu,op_mul,op_msub,op_msubu,op_clz,op_clo,
-        op_lb,op_lh,op_lwl,op_lw,op_lbu,op_lhu,op_lwr,op_sb,op_sh,op_swl,op_sw,op_swr,op_cache,op_ll,op_pref,op_sc
-    } = decoded_i;
+    assign {`DECODED_OPS} = decoded_i;
     
     wire [`I_MAX-1:0] ctrl_sig;
     
@@ -136,6 +111,8 @@ module execute_stage(
     wire cp0_inst = op_mfc0||op_mtc0||op_tlbr||op_tlbwi||op_tlbwr||op_tlbp||op_eret||op_wait||op_cache;
     wire cp0_avail = status[`STATUS_CU0] || !status[`STATUS_UM] || status[`STATUS_EXL];
     wire cp0u = cp0_inst && !cp0_avail;
+    wire cp1u = op_movft||op_cop1||op_lwc1||op_ldc1||op_swc1||op_sdc1;
+    wire cpxu = cp0u || cp1u;
     
     // LLbit
     reg llbit;
@@ -537,13 +514,13 @@ module execute_stage(
     end
 
     // exceptions
-    wire exc = reserved || cp0u
+    wire exc = reserved || cpxu
             || op_syscall || op_break || op_eret || trap
             || alu_of_exc || mem_adel || mem_ades
             || valid_i && (tlbl || tlbs || tlbm);
 
     wire [4:0] exccode = {5{reserved}} & `EXC_RI
-                       | {5{cp0u}} & `EXC_CPU
+                       | {5{cpxu}} & `EXC_CPU
                        | {5{op_syscall}} & `EXC_SYS
                        | {5{op_break}} & `EXC_BP
                        | {5{trap}} & `EXC_TR
@@ -554,14 +531,15 @@ module execute_stage(
                        | {5{tlbs}} & `EXC_TLBS
                        | {5{tlbm}} & `EXC_MOD;
     assign commit = valid && exc || valid_i && exc_i;
-    assign commit_miss = !cp0u && valid && (mem_read || mem_write || op_cache) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
+    assign commit_miss = !cpxu && valid && (mem_read || mem_write || op_cache) && (qstate == 2'd0 && tlbc_hit || qstate == 2'd2) && tlbc_miss
                       || valid_i && exc_i && exc_miss_i;
     assign commit_int = valid_i && exc_i && exc_int_i;
     assign commit_code = valid && exc ? exccode : exccode_i;
     assign commit_bd = prev_branch;
+    assign commit_ce = {2{cp1u}} & 2'd1;
     assign commit_epc = prev_branch ? pc_i - 32'd4 : pc_i;
     assign commit_bvaddr = exc_i ? pc_i : eaddr;
-    assign commit_eret = !cp0u && op_eret;
+    assign commit_eret = !cpxu && op_eret;
     
     wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu) && !muldiv
                     ||  (do_j||do_jr||branch_taken||likely) && branch_ready
