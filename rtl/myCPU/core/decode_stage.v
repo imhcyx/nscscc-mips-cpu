@@ -79,7 +79,7 @@ module decode_stage(
     always @(posedge clk) begin
         if (!resetn) inst_saved <= 1'b0;
         else if (done_o && ready_i) inst_saved <= 1'b0;
-        else if (inst_data_ok) inst_saved <= 1'b1;
+        else if (valid_i && inst_data_ok) inst_saved <= 1'b1;
     end
     
     wire [31:0] inst = inst_saved ? inst_save : inst_rdata;
