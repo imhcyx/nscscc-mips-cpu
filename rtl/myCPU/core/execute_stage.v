@@ -13,6 +13,7 @@ module execute_stage(
     output  [2 :0]              data_size,
     output  [31:0]              data_wdata,
     input                       data_addr_ok,
+    input                       data_data_ok,
     
     // branch/jump signals
     output                      branch,
@@ -444,6 +445,7 @@ module execute_stage(
             tlbc_paddr_hi <= 20'd0;
             tlbc_miss <= 1'b0;
             tlbc_invalid <= 1'b0;
+            tlbc_dirty <= 1'b0;
             tlbc_cattr <= 3'd0;
         end
         else if (qstate == 2'd1) begin
@@ -459,7 +461,16 @@ module execute_stage(
     wire req_state = qstate == 2'd0 && (kseg01 || tlbc_hit)
                   || qstate == 2'd2;
     
-    assign data_req = valid && (mem_read || mem_write) && !mem_exc && req_state;
+    reg req_flag;
+    always @(posedge clk) begin
+        if (!resetn) req_flag <= 1'b0;
+        else if (data_addr_ok) req_flag <= 1'b1;
+        else if (data_data_ok) req_flag <= 1'b0;
+    end
+    
+    wire ok_to_req = !req_flag || data_data_ok;
+    
+    assign data_req = valid && ok_to_req && (mem_read || mem_write) && !mem_exc && req_state;
     assign data_cache = (qstate == 2'd0 && kseg01) ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
     assign data_wr = mem_write;
     

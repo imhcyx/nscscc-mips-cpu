@@ -11,13 +11,13 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1566685786726fs"></ZoomStartTime>
-      <ZoomEndTime time="1566792842655fs"></ZoomEndTime>
-      <Cursor1Time time="1566775000000fs"></Cursor1Time>
+      <ZoomStartTime time="0fs"></ZoomStartTime>
+      <ZoomEndTime time="111976423fs"></ZoomEndTime>
+      <Cursor1Time time="189895000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="217"></NameColumnWidth>
-      <ValueColumnWidth column_width="89"></ValueColumnWidth>
+      <ValueColumnWidth column_width="81"></ValueColumnWidth>
    </column_width_setting>
    <WVObjectSize size="23" />
    <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/clk" type="logic">
@@ -289,6 +289,10 @@
          <obj_property name="ElementShortName">if_req_exc</obj_property>
          <obj_property name="ObjectShortName">if_req_exc</obj_property>
       </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/fetch/req_flag" type="logic">
+         <obj_property name="ElementShortName">req_flag</obj_property>
+         <obj_property name="ObjectShortName">req_flag</obj_property>
+      </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/fetch/ok_to_req" type="logic">
          <obj_property name="ElementShortName">ok_to_req</obj_property>
          <obj_property name="ObjectShortName">ok_to_req</obj_property>
@@ -547,6 +551,14 @@
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/execute/mem_exc" type="logic">
          <obj_property name="ElementShortName">mem_exc</obj_property>
          <obj_property name="ObjectShortName">mem_exc</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/execute/req_flag" type="logic">
+         <obj_property name="ElementShortName">req_flag</obj_property>
+         <obj_property name="ObjectShortName">req_flag</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/execute/ok_to_req" type="logic">
+         <obj_property name="ElementShortName">ok_to_req</obj_property>
+         <obj_property name="ObjectShortName">ok_to_req</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_top/soc_lite/cpu/cpu/execute/exc" type="logic">
          <obj_property name="ElementShortName">exc</obj_property>
