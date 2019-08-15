@@ -247,14 +247,14 @@ module execute_stage(
     // multiplication
     // the multiplier is divided into 3 stages
     wire [63:0] mul_res;
-    reg [0:0] mul_flag;
+    reg [1:0] mul_flag;
     reg [1:0] maddsub_flag;
     reg maddsub;
     reg mul_start;
     always @(posedge clk) begin
-        if (!resetn) mul_flag <= 1'b0;
-        else if ((op_div||op_divu) && valid) mul_flag <= 1'b0;
-        else mul_flag <= {(op_mult||op_multu||op_mul) && valid && !mul_start};
+        if (!resetn) mul_flag <= 2'b00;
+        else if ((op_div||op_divu) && valid) mul_flag <= 2'b00;
+        else mul_flag <= {mul_flag[0], (op_mult||op_multu||op_mul) && valid && !mul_start};
         
         if (!resetn) maddsub_flag <= 2'b00;
         else if ((op_div||op_divu||op_mult||op_multu) && valid) maddsub_flag <= 2'b00;
@@ -304,7 +304,7 @@ module execute_stage(
     // HI/LO registers
     reg [31:0] hi, lo;
     always @(posedge clk) begin
-        if (mul_flag[0] && !op_mul) begin
+        if (mul_flag[0]) begin
             hi <= mul_res[63:32];
             lo <= mul_res[31:0];
         end
@@ -461,16 +461,7 @@ module execute_stage(
     wire req_state = qstate == 2'd0 && (kseg01 || tlbc_hit)
                   || qstate == 2'd2;
     
-    reg req_flag;
-    always @(posedge clk) begin
-        if (!resetn) req_flag <= 1'b0;
-        else if (data_addr_ok) req_flag <= 1'b1;
-        else if (data_data_ok) req_flag <= 1'b0;
-    end
-    
-    wire ok_to_req = !req_flag || data_data_ok;
-    
-    assign data_req = valid && ok_to_req && (mem_read || mem_write) && !mem_exc && req_state;
+    assign data_req = valid && (mem_read || mem_write) && !mem_exc && req_state;
     assign data_cache = (qstate == 2'd0 && kseg01) ? (kseg0 && config_k0[0]) : tlbc_cattr[0];
     assign data_wr = mem_write;
     
@@ -554,7 +545,7 @@ module execute_stage(
     
     wire done_nonmem = ((op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu) && !muldiv
                     ||  (do_j||do_jr||branch_taken||likely) && branch_ready
-                    ||  (op_mul) && mul_flag[0]
+                    ||  (op_mul) && mul_flag[1]
                     ||  (do_cloz) && cloz_ok
                     || !(op_mfhi||op_mflo||op_mthi||op_mtlo||op_madd||op_maddu||op_msub||op_msubu||
                          do_j||do_jr||branch_taken||likely||op_mul||do_cloz||ctrl_sig[`I_MEM_R]||ctrl_sig[`I_MEM_W]||op_cache));
@@ -565,17 +556,16 @@ module execute_stage(
     
     assign fwd_addr = {5{valid_i}} & waddr;
     assign fwd_data = {32{op_mfhi}} & hi
-                    | {32{op_mflo}} & lo
+                    | {32{op_mflo||op_mul}} & lo
                     | {32{op_lui}} & {imm, 16'd0}
                     | {32{do_link}} & (pc_i + 32'd8)
                     | {32{op_mfc0}} & cp0_rdata
                     | {32{op_movz||op_movn}} & rdata1_i
-                    | {32{op_mul}} & mul_res[31:0]
                     | {32{do_cloz}} & clo_result
                     | {32{op_sc}} & {32'd0, llbit}
                     | {32{!(op_mfhi||op_mflo||op_lui||do_link||op_mfc0||op_movz||op_movn||op_mul||do_cloz||op_sc)}} & alu_res_wire;
 
-    assign fwd_ok   = valid && done_nonmem && ready_i && ctrl_sig[`I_WEX];
+    assign fwd_ok   = valid && done_nonmem && ctrl_sig[`I_WEX];
 
     always @(posedge clk) begin
         if (!resetn) begin
